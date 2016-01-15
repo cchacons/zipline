@@ -13,34 +13,35 @@ from pandas.util.testing import assert_series_equal
 from six import iteritems
 
 from zipline.pipeline import Pipeline
-from zipline.pipeline.data import EarningsCalendar
+from zipline.pipeline.data import BuybackAuthorizations
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline.factors.events import (
-    BusinessDaysUntilNextEarnings,
-    BusinessDaysSincePreviousEarnings,
+    BusinessDaysSincePreviousBuybackAuth,
 )
-from zipline.pipeline.loaders.earnings import EarningsCalendarLoader
+from zipline.pipeline.loaders.buyback_auth import \
+    CashBuybackAuthorizationsLoader, ShareBuybackAuthorizationsLoader
 from zipline.pipeline.loaders.blaze import (
-    ANNOUNCEMENT_FIELD_NAME,
-    BlazeEarningsCalendarLoader,
+    BUYBACK_ANNOUNCEMENT_FIELD_NAME,
+    BlazeBuybackAuthorizationsLoader,
+    SHARE_COUNT_FIELD_NAME,
     SID_FIELD_NAME,
     TS_FIELD_NAME,
+    VALUE_FIELD_NAME
 )
-from zipline.utils.numpy_utils import make_datetime64D, NaTD
+from zipline.utils.numpy_utils import make_datetime64D, np_NaT
 from zipline.utils.test_utils import (
     make_simple_equity_info,
     tmp_asset_finder,
     gen_calendars,
-    to_series,
     num_days_in_range,
 )
 
 
-class EarningsCalendarLoaderTestCase(TestCase):
+class BuybackAuthLoaderTestCase(TestCase):
     """
     Tests for loading the earnings announcement data.
     """
-    loader_type = EarningsCalendarLoader
+    loader_type = BuybackAuthorizationsLoader
 
     @classmethod
     def setUpClass(cls):
@@ -55,35 +56,45 @@ class EarningsCalendarLoaderTestCase(TestCase):
             tmp_asset_finder(equities=equity_info),
         )
 
-        cls.earnings_dates = {
-            # K1--K2--E1--E2.
+        cls.buyback_authorizations = {
+            # K1--K2--A1--A2--SC1--SC2--V1--V2.
             A: pd.DataFrame({
                 "timestamp": pd.to_datetime(['2014-01-05', '2014-01-10']),
-                ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-15',
-                                                         '2014-01-20'])
+                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-15',
+                                                     '2014-01-20']),
+                SHARE_COUNT_FIELD_NAME: [1, 15],
+                VALUE_FIELD_NAME: [10, 20]
             }),
             # K1--K2--E2--E1.
             B: pd.DataFrame({
                 "timestamp": pd.to_datetime(['2014-01-05', '2014-01-10']),
-                ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-20',
-                                                         '2014-01-15'])
+                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
+                    '2014-01-20', '2014-01-15']),
+                SHARE_COUNT_FIELD_NAME: [7, 13], VALUE_FIELD_NAME: [10, 22]
             }),
             # K1--E1--K2--E2.
             C: pd.DataFrame({
                 "timestamp": pd.to_datetime(['2014-01-05', '2014-01-15']),
-                ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-10',
-                                                         '2014-01-20'])
+                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
+                    '2014-01-10', '2014-01-20']),
+                SHARE_COUNT_FIELD_NAME: [3, 1],
+                VALUE_FIELD_NAME: [4, 7]
             }),
             # K1 == K2.
             D: pd.DataFrame({
                 "timestamp": pd.to_datetime(['2014-01-05'] * 2),
-                ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-10',
-                                                         '2014-01-15'])
+                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
+                    '2014-01-10', '2014-01-15']),
+                SHARE_COUNT_FIELD_NAME: [6, 23],
+                VALUE_FIELD_NAME: [1, 2]
             }),
-            E: pd.DataFrame({
-                "timestamp": pd.to_datetime([]),
-                ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([])
-            })
+            E: pd.DataFrame(
+                columns=["timestamp",
+                         BUYBACK_ANNOUNCEMENT_FIELD_NAME,
+                         SHARE_COUNT_FIELD_NAME,
+                         VALUE_FIELD_NAME],
+                dtype='datetime64[ns]'
+            ),
         }
 
     @classmethod
@@ -91,7 +102,7 @@ class EarningsCalendarLoaderTestCase(TestCase):
         cls._cleanup_stack.close()
 
     def loader_args(self, dates):
-        """Construct the base earnings announcements object to pass to the
+        """Construct the base buyback authorizations object to pass to the
         loader.
 
         Parameters
@@ -104,7 +115,7 @@ class EarningsCalendarLoaderTestCase(TestCase):
         args : tuple[any]
             The arguments to forward to the loader positionally.
         """
-        return dates, self.earnings_dates
+        return dates, self.buyback_authorizations
 
     def setup(self, dates):
         """
@@ -121,39 +132,46 @@ class EarningsCalendarLoaderTestCase(TestCase):
 
         def zip_with_dates(dts):
             return pd.Series(pd.to_datetime(dts), index=dates)
-        # TODO: tests will break because I now need mappings of sid ->
-        # dataframe instead of sid -> series
-        _expected_next_announce = pd.DataFrame({
-            A: zip_with_dates(
-                ['NaT'] * num_days_between(None, '2014-01-04') +
-                ['2014-01-15'] * num_days_between('2014-01-05', '2014-01-15') +
-                ['2014-01-20'] * num_days_between('2014-01-16', '2014-01-20') +
-                ['NaT'] * num_days_between('2014-01-21', None)
-            ),
-            B: zip_with_dates(
-                ['NaT'] * num_days_between(None, '2014-01-04') +
-                ['2014-01-20'] * num_days_between('2014-01-05', '2014-01-09') +
-                ['2014-01-15'] * num_days_between('2014-01-10', '2014-01-15') +
-                ['2014-01-20'] * num_days_between('2014-01-16', '2014-01-20') +
-                ['NaT'] * num_days_between('2014-01-21', None)
-            ),
-            C: zip_with_dates(
-                ['NaT'] * num_days_between(None, '2014-01-04') +
-                ['2014-01-10'] * num_days_between('2014-01-05', '2014-01-10') +
-                ['NaT'] * num_days_between('2014-01-11', '2014-01-14') +
-                ['2014-01-20'] * num_days_between('2014-01-15', '2014-01-20') +
-                ['NaT'] * num_days_between('2014-01-21', None)
-            ),
-            D: zip_with_dates(
-                ['NaT'] * num_days_between(None, '2014-01-04') +
-                ['2014-01-10'] * num_days_between('2014-01-05', '2014-01-10') +
-                ['2014-01-15'] * num_days_between('2014-01-11', '2014-01-15') +
-                ['NaT'] * num_days_between('2014-01-16', None)
-            ),
-            E: zip_with_dates(['NaT'] * len(dates)),
+
+        def zip_with_floats(flts):
+            return pd.Series(flts, index=dates).astype('float')
+
+        _expected_previous_value = pd.DataFrame({
+            # TODO if the next knowledge date is 10, why is the range
+            #  until 15?
+            A: zip_with_floats(
+                ['NaN'] * num_days_between(None, '2014-01-14') +
+               [10] * num_days_between('2014-01-15', '2014-01-19') +
+               [20] * num_days_between('2014-01-20', None)),
+            B: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-14') +
+               [22] * num_days_between('2014-01-15', '2014-01-19') +
+               [10] * num_days_between('2014-01-20', None)),
+            C: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-09') +
+               [4] * num_days_between('2014-01-10', '2014-01-19') +
+               [7] * num_days_between('2014-01-20', None)),
+            D: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-09') +
+               [1] * num_days_between('2014-01-10', '2014-01-14') +
+               [2] * num_days_between('2014-01-15', None)),
+            E: zip_with_floats(['NaN'] * len(dates)),
         }, index=dates)
 
-        _expected_previous_announce = pd.DataFrame({
+        _expected_previous_buyback_share_count = pd.DataFrame({
+            A: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-14') +
+               [1] * num_days_between('2014-01-15', '2014-01-19') +
+               [15] * num_days_between('2014-01-20', None)),
+            B: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-14') +
+               [13] * num_days_between('2014-01-15', '2014-01-19') +
+               [7] * num_days_between('2014-01-20', None)),
+            C: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-09') +
+               [3] * num_days_between('2014-01-10', '2014-01-19') +
+               [1] * num_days_between('2014-01-20', None)),
+            D: zip_with_floats(['NaN'] * num_days_between(None, '2014-01-09') +
+               [6] * num_days_between('2014-01-10', '2014-01-14') +
+               [23] * num_days_between('2014-01-15', None)),
+            E: zip_with_floats(['NaN'] * len(dates)),
+        }, index=dates)
+
+        _expected_previous_buyback_announcement = pd.DataFrame({
             A: zip_with_dates(
                 ['NaT'] * num_days_between(None, '2014-01-14') +
                 ['2014-01-15'] * num_days_between('2014-01-15', '2014-01-19') +
@@ -177,31 +195,28 @@ class EarningsCalendarLoaderTestCase(TestCase):
             E: zip_with_dates(['NaT'] * len(dates)),
         }, index=dates)
 
-        _expected_next_busday_offsets = self._compute_busday_offsets(
-            _expected_next_announce
-        )
         _expected_previous_busday_offsets = self._compute_busday_offsets(
-            _expected_previous_announce
+            _expected_previous_buyback_announcement
         )
 
-        def expected_next_announce(sid):
+        def expected_previous_value(sid):
             """
             Return the expected next announcement dates for ``sid``.
             """
-            return _expected_next_announce[sid]
+            return _expected_previous_value[sid]
 
-        def expected_next_busday_offset(sid):
+        def expected_previous_buyback_share_count(sid):
             """
             Return the expected number of days to the next announcement for
             ``sid``.
             """
-            return _expected_next_busday_offsets[sid]
+            return _expected_previous_buyback_share_count[sid]
 
-        def expected_previous_announce(sid):
+        def expected_previous_buyback_announcement(sid):
             """
             Return the expected previous announcement dates for ``sid``.
             """
-            return _expected_previous_announce[sid]
+            return _expected_previous_buyback_announcement[sid]
 
         def expected_previous_busday_offset(sid):
             """
@@ -214,9 +229,9 @@ class EarningsCalendarLoaderTestCase(TestCase):
         engine = SimplePipelineEngine(lambda _: loader, dates, self.finder)
         return (
             engine,
-            expected_next_announce,
-            expected_next_busday_offset,
-            expected_previous_announce,
+            expected_previous_value,
+            expected_previous_buyback_share_count,
+            expected_previous_buyback_announcement,
             expected_previous_busday_offset,
         )
 
@@ -238,7 +253,7 @@ class EarningsCalendarLoaderTestCase(TestCase):
 
         # Set NaTs to 0 temporarily because busday_count doesn't support NaT.
         # We fill these entries with NaNs later.
-        whereNaT = raw_announce_dates == NaTD
+        whereNaT = raw_announce_dates == np_NaT
         raw_announce_dates[whereNaT] = make_datetime64D(0)
 
         # The abs call here makes it so that we can use this function to
@@ -264,24 +279,27 @@ class EarningsCalendarLoaderTestCase(TestCase):
             '2014-01-10',
             '2014-01-15',
             '2014-01-20',
-        ], utc=True),
+        ]),
     ))
-    def test_compute_earnings(self, dates):
-
+    def test_compute_buyback_auth(self, dates):
         (
             engine,
-            expected_next,
-            expected_next_busday_offset,
-            expected_previous,
+            expected_previous_value,
+            expected_previous_buyback_share_count,
+            expected_previous_buyback_announcement,
             expected_previous_busday_offset,
         ) = self.setup(dates)
 
         pipe = Pipeline(
             columns={
-                'next': EarningsCalendar.next_announcement.latest,
-                'previous': EarningsCalendar.previous_announcement.latest,
-                'days_to_next': BusinessDaysUntilNextEarnings(),
-                'days_since_prev': BusinessDaysSincePreviousEarnings(),
+                'previous_value':
+                    BuybackAuthorizations.previous_buyback_value.latest,
+                'previous_buyback_share_count':
+                    BuybackAuthorizations.previous_buyback_share_count.latest,
+                'previous_buyback_announcement':
+                    BuybackAuthorizations.previous_buyback_announcement.latest,
+                'days_since_prev':
+                    BusinessDaysSincePreviousBuybackAuth(),
             }
         )
 
@@ -291,74 +309,67 @@ class EarningsCalendarLoaderTestCase(TestCase):
             end_date=dates[-1],
         )
 
-        computed_next = result['next']
-        computed_previous = result['previous']
-        computed_next_busday_offset = result['days_to_next']
+        computed_previous_value = result['previous_value']
+        computed_previous_buyback_share_count = result[
+            'previous_buyback_share_count'
+        ]
+        computed_previous_buyback_announcement = result[
+            'previous_buyback_announcement'
+        ]
         computed_previous_busday_offset = result['days_since_prev']
 
-        # NaTs in next/prev should correspond to NaNs in offsets.
-        assert_series_equal(
-            computed_next.isnull(),
-            computed_next_busday_offset.isnull(),
-            check_names=False,
-        )
-        assert_series_equal(
-            computed_previous.isnull(),
-            computed_previous_busday_offset.isnull(),
-            check_names=False,
-        )
+        # TODO: NaTs in next/prev should correspond to NaNs in offsets.
 
         for sid in self.sids:
 
             assert_series_equal(
-                computed_next.xs(sid, level=1),
-                expected_next(sid),
+                computed_previous_value.xs(sid, level=1),
+                expected_previous_value(sid),
                 sid,
-                check_names=False,
             )
 
             assert_series_equal(
-                computed_previous.xs(sid, level=1),
-                expected_previous(sid),
+                computed_previous_buyback_share_count.xs(sid, level=1),
+                expected_previous_buyback_share_count(sid),
                 sid,
-                check_names=False,
             )
 
             assert_series_equal(
-                computed_next_busday_offset.xs(sid, level=1),
-                expected_next_busday_offset(sid),
+                computed_previous_buyback_announcement.xs(sid, level=1),
+                expected_previous_buyback_announcement(sid),
                 sid,
-                check_names=False,
             )
 
             assert_series_equal(
                 computed_previous_busday_offset.xs(sid, level=1),
                 expected_previous_busday_offset(sid),
                 sid,
-                check_names=False,
             )
 
 
-class BlazeEarningsCalendarLoaderTestCase(EarningsCalendarLoaderTestCase):
-    loader_type = BlazeEarningsCalendarLoader
+class BlazeBuybackAuthLoaderTestCase(BuybackAuthLoaderTestCase):
+    loader_type = BlazeBuybackAuthorizationsLoader
 
     def loader_args(self, dates):
         _, mapping = super(
-            BlazeEarningsCalendarLoaderTestCase,
+            BlazeBuybackAuthLoaderTestCase,
             self,
         ).loader_args(dates)
         return (bz.Data(pd.concat(
             pd.DataFrame({
-                ANNOUNCEMENT_FIELD_NAME: df[ANNOUNCEMENT_FIELD_NAME],
-                TS_FIELD_NAME: df[TS_FIELD_NAME],
+                BUYBACK_ANNOUNCEMENT_FIELD_NAME:
+                    frame[BUYBACK_ANNOUNCEMENT_FIELD_NAME],
+                SHARE_COUNT_FIELD_NAME: frame[SHARE_COUNT_FIELD_NAME],
+                VALUE_FIELD_NAME: frame[VALUE_FIELD_NAME],
+                TS_FIELD_NAME: frame.index,
                 SID_FIELD_NAME: sid,
             })
-            for sid, df in iteritems(mapping)
+            for sid, frame in iteritems(mapping)
         ).reset_index(drop=True)),)
 
 
 class BlazeEarningsCalendarLoaderNotInteractiveTestCase(
-        BlazeEarningsCalendarLoaderTestCase):
+        BlazeBuybackAuthLoaderTestCase):
     """Test case for passing a non-interactive symbol and a dict of resources.
     """
     def loader_args(self, dates):
@@ -369,31 +380,30 @@ class BlazeEarningsCalendarLoaderNotInteractiveTestCase(
         return swap_resources_into_scope(bound_expr, {})
 
 
-class EarningsCalendarLoaderInferTimestampTestCase(TestCase):
+class BuybackAuthLoaderInferTimestampTestCase(TestCase):
     def test_infer_timestamp(self):
         dtx = pd.date_range('2014-01-01', '2014-01-10')
-        announcement_dates = {
-            0: pd.DataFrame({ANNOUNCEMENT_FIELD_NAME: dtx}),
-            1: pd.DataFrame({TS_FIELD_NAME: dtx, ANNOUNCEMENT_FIELD_NAME: dtx}),
+        events_by_sid = {
+            0: pd.DataFrame({BUYBACK_ANNOUNCEMENT_FIELD_NAME: dtx}),
+            1: pd.DataFrame(
+                {BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.Series(dtx, dtx)},
+                index=dtx
+            )
         }
-        loader = EarningsCalendarLoader(
+        loader = BuybackAuthorizationsLoader(
             dtx,
-            announcement_dates,
+            events_by_sid,
             infer_timestamps=True,
         )
         self.assertEqual(
             loader.events_by_sid.keys(),
-            announcement_dates.keys(),
+            events_by_sid.keys(),
         )
         assert_series_equal(
-            pd.Series(loader.events_by_sid[0][ANNOUNCEMENT_FIELD_NAME]),
-            pd.Series(index=[dtx[0]] * 10, data=dtx,
-                      name=ANNOUNCEMENT_FIELD_NAME),
+            loader.events_by_sid[0][BUYBACK_ANNOUNCEMENT_FIELD_NAME],
+            pd.Series(index=[dtx[0]] * 10, data=dtx),
         )
         assert_series_equal(
-            pd.Series(loader.events_by_sid[1][ANNOUNCEMENT_FIELD_NAME]),
-            pd.Series(index=announcement_dates[1][TS_FIELD_NAME],
-                      data=np.array(announcement_dates[1][
-                          ANNOUNCEMENT_FIELD_NAME]),
-                      name=ANNOUNCEMENT_FIELD_NAME)
+            loader.events_by_sid[1][BUYBACK_ANNOUNCEMENT_FIELD_NAME],
+            events_by_sid[1][BUYBACK_ANNOUNCEMENT_FIELD_NAME],
         )
