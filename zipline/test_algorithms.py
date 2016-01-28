@@ -73,6 +73,7 @@ The algorithm must expose methods:
 """
 from copy import deepcopy
 import numpy as np
+import pandas as pd
 
 from nose.tools import assert_raises
 
@@ -89,6 +90,7 @@ from zipline.api import (
 )
 from zipline.errors import UnsupportedOrderParameters
 from zipline.assets import Future, Equity
+from zipline.finance.commission import PerTrade
 from zipline.finance.execution import (
     LimitOrder,
     MarketOrder,
@@ -945,6 +947,29 @@ class TestRemoveDataAlgo(TradingAlgorithm):
     def handle_data(self, data):
         self.data[self.i] = len(data)
         self.i += 1
+
+
+class TestLiquidationAlgorithm(TradingAlgorithm):
+    def initialize(self, *args, **kwargs):
+        self.ordered = False
+        self.set_commission(PerTrade(0))
+        self.set_slippage(FixedSlippage(spread=0))
+        self.num_positions = []
+        self.cash = []
+
+    def handle_data(self, data):
+        if not self.ordered:
+            self.ordered = True
+            for s in data:
+                self.order(self.sid(s), 10)
+
+        # if self.get_datetime() > data[0]['dt']:
+        if self.get_datetime() == pd.Timestamp('2015-01-07', tz='UTC'):
+            # This creates a persisting open order, as Equity 0 will delist.
+            self.order(self.sid(0), 10)
+
+        self.cash.append(self.portfolio.cash)
+        self.num_positions.append(len(self.portfolio.positions))
 
 
 ##############################

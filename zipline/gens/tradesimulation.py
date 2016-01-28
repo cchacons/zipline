@@ -89,6 +89,9 @@ class AlgorithmSimulator(object):
         # receive a message.
         self.simulation_dt = None
 
+        # self.simulation_dt = self.algo_start
+        # self.previous_dt = self.algo_start
+
         # =============
         # Logging Setup
         # =============
@@ -133,6 +136,10 @@ class AlgorithmSimulator(object):
                         del self.current_data[sid]
                     except KeyError:
                         continue
+
+                # self.previous_dt = date
+                # self.simulation_dt = date
+                # self.on_dt_changed(date)
 
                 # If we're still in the warmup period.  Use the event to
                 # update our universe, but don't yield any perf messages,
@@ -181,7 +188,7 @@ class AlgorithmSimulator(object):
                         next_day = self.env.next_trading_day(date)
 
                         if next_day is not None and \
-                           next_day < self.algo.perf_tracker.last_close:
+                           next_day <= self.algo.perf_tracker.last_close:
                             self._call_before_trading_start(next_day)
 
                     self.algo.portfolio_needs_update = True
@@ -366,6 +373,7 @@ class AlgorithmSimulator(object):
 
     def _call_before_trading_start(self, dt):
         dt = normalize_date(dt)
+        self.handle_assets(dt)
         self.simulation_dt = dt
         self.on_dt_changed(dt)
         self.algo.before_trading_start(self.current_data)
@@ -373,6 +381,43 @@ class AlgorithmSimulator(object):
     def on_dt_changed(self, dt):
         if self.algo.datetime != dt:
             self.algo.on_dt_changed(dt)
+
+    def handle_assets(self, next_trading_day):
+        """
+        Close out expired futures/delisted securities.
+        """
+        self.algo.perf_tracker.check_asset_auto_closes(
+            next_trading_day=next_trading_day,
+        )
+        self.handle_equities()
+        self.handle_futures(next_trading_day)
+
+    def handle_equities(self):
+        """
+        Remove delisted equities and any open orders for those equities.
+        """
+        past_sids = self.algo.perf_tracker.position_tracker._past_equity_sids
+        while past_sids:
+            sid = past_sids.pop()
+            equity = self.algo.asset_finder.retrieve_asset(sid)
+            self.algo.blotter.open_orders.pop(equity, None)
+            try:
+                del self.current_data[sid]
+            except KeyError:
+                continue
+
+    def handle_futures(self, next_trading_day):
+        """
+        Remove expired futures.
+        """
+        expired_sids = self.env.asset_finder.lookup_expired_futures(
+            start=self.simulation_dt, end=next_trading_day,
+        )
+        for sid in expired_sids:
+            try:
+                del self.current_data[sid]
+            except KeyError:
+                continue
 
     def generate_messages(self, dt):
         """

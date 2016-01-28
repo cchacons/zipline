@@ -473,11 +473,6 @@ class PerformanceTracker(object):
         # simulation, return the daily perf packet
         next_trading_day = self.env.next_trading_day(completed_date)
 
-        # Check if any assets need to be auto-closed before generating today's
-        # perf period
-        if next_trading_day:
-            self.check_asset_auto_closes(next_trading_day=next_trading_day)
-
         # Take a snapshot of our current performance to return to the
         # browser.
         daily_update = self.to_dict(emission_type='daily')

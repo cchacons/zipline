@@ -56,6 +56,16 @@ PositionStats = namedtuple('PositionStats',
                             'net_value'])
 
 
+def generate_close_event(sid, date):
+        # Return a CLOSE_POSITION event
+        event = Event({
+            'dt': date,
+            'type': DATASOURCE_TYPE.CLOSE_POSITION,
+            'sid': sid,
+        })
+        return event
+
+
 def calc_position_values(amounts,
                          last_sale_prices,
                          value_multipliers):
@@ -136,9 +146,17 @@ class PositionTracker(object):
         )
         self._positions_store = zp.Positions()
 
-        # Dict, keyed on dates, that contains lists of close position events
-        # for any Assets in this tracker's positions
+        # Dict mapping close position dates to dicts, keyed on asset types,
+        # containing sets of sids to be closed. For example:
+        # {
+        #     'date1': {'equity': set(), 'future': set()},
+        #     'date2': {'equity': set(), 'future': {1, 2}},
+        #     'date3': {'equity': {3, 4}, 'future': {5}},
+        # }
         self._auto_close_position_sids = {}
+
+        # This is used to keep track of the sids of "expired" equities.
+        self._past_equity_sids = set()
 
     def _update_asset(self, sid):
         try:
@@ -157,14 +175,16 @@ class PositionTracker(object):
             if isinstance(asset, Future):
                 self._position_value_multipliers[sid] = 0
                 self._position_exposure_multipliers[sid] = asset.multiplier
-                # Futures auto-close timing is controlled by the Future's
-                # auto_close_date property
-                self._insert_auto_close_position_date(
-                    dt=asset.auto_close_date,
-                    sid=sid
-                )
 
-    def _insert_auto_close_position_date(self, dt, sid):
+            # An asset's auto-close timing is controlled by its auto_close_date
+            # property.
+            self._insert_auto_close_position_date(
+                dt=asset.auto_close_date,
+                sid=sid,
+                asset_type=asset.__class__.__name__.lower(),
+            )
+
+    def _insert_auto_close_position_date(self, dt, sid, asset_type):
         """
         Inserts the given SID in to the list of positions to be auto-closed by
         the given dt.
@@ -175,9 +195,15 @@ class PositionTracker(object):
             The date before-which the given SID will be auto-closed
         sid : int
             The SID of the Asset to be auto-closed
+        asset_type : str
+            The type of the Asset to be auto-closed.
+            Must either be 'equity' or 'future'.
         """
         if dt is not None:
-            self._auto_close_position_sids.setdefault(dt, set()).add(sid)
+            self._auto_close_position_sids.setdefault(
+                dt, {'equity': set(), 'future': set()},
+            )
+            self._auto_close_position_sids[dt][asset_type].add(sid)
 
     def auto_close_position_events(self, next_trading_day):
         """
@@ -198,19 +224,18 @@ class PositionTracker(object):
         past_asset_end_dates = set()
 
         # Check the auto_close_position_dates dict for SIDs to close
-        for date, sids in self._auto_close_position_sids.items():
+        for date, dict_ in self._auto_close_position_sids.items():
             if date > next_trading_day:
                 continue
+
             past_asset_end_dates.add(date)
 
-            for sid in sids:
-                # Yield a CLOSE_POSITION event
-                event = Event({
-                    'dt': date,
-                    'type': DATASOURCE_TYPE.CLOSE_POSITION,
-                    'sid': sid,
-                })
-                yield event
+            for sid in dict_['equity']:
+                self._past_equity_sids.add(sid)
+                yield generate_close_event(sid, date)
+
+            for sid in dict_['future']:
+                yield generate_close_event(sid, date)
 
         # Clear out past dates
         while past_asset_end_dates:
@@ -448,6 +473,7 @@ class PositionTracker(object):
         state_dict['positions'] = dict(self.positions)
         state_dict['unpaid_dividends'] = self._unpaid_dividends
         state_dict['auto_close_position_sids'] = self._auto_close_position_sids
+        state_dict['past_equity_sids'] = self._past_equity_sids
 
         STATE_VERSION = 3
         state_dict[VERSION_LABEL] = STATE_VERSION
@@ -468,6 +494,7 @@ class PositionTracker(object):
 
         self._unpaid_dividends = state['unpaid_dividends']
         self._auto_close_position_sids = state['auto_close_position_sids']
+        self._past_equity_sids = state['past_equity_sids']
 
         # Arrays for quick calculations of positions value
         self._position_value_multipliers = OrderedDict()

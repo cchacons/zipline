@@ -51,6 +51,7 @@ from zipline.test_algorithms import (
     RecordAlgorithm,
     FutureFlipAlgo,
     TestAlgorithm,
+    TestLiquidationAlgorithm,
     TestOrderAlgorithm,
     TestOrderInstantAlgorithm,
     TestOrderPercentAlgorithm,
@@ -86,6 +87,7 @@ import zipline.utils.events
 from zipline.utils.test_utils import (
     assert_single_position,
     drain_zipline,
+    make_rotating_equity_info,
     to_utc,
 )
 
@@ -102,6 +104,7 @@ from zipline.algorithm import TradingAlgorithm
 from zipline.protocol import DATASOURCE_TYPE
 from zipline.finance.trading import TradingEnvironment
 from zipline.finance.commission import PerShare
+from zipline.utils.tradingcalendar import trading_day
 
 # Because test cases appear to reuse some resources.
 _multiprocess_can_split_ = False
@@ -1879,7 +1882,7 @@ class TestClosePosAlgo(TestCase):
         # Check results
         results = algo.run(data)
 
-        expected_positions = [0, 1, 1, 0]
+        expected_positions = [0, 1, 1, 1]
         self.check_algo_positions(results, expected_positions)
 
         expected_pnl = [0, 0, 1, 2]
@@ -2018,3 +2021,105 @@ class TestRemoveData(TestCase):
         # initially only data for X should be sent and on the last day only
         # data for Y should be sent since X is expired
         np.testing.assert_array_equal(self.algo.data, expected_lengths)
+
+
+class TestAssetAutoClose(TestCase):
+    """
+    Tests if delisted securities are properly removed from a portfolio holding
+    positions in said securities.
+    """
+    def setUp(self):
+        dt = pd.Timestamp('2015-01-05', tz='UTC')
+        self.env = TradingEnvironment()
+        ix = self.env.trading_days.get_loc(dt)
+
+        self.metadata = make_rotating_equity_info(
+            3, dt, trading_day, 2, 2,
+        )
+
+        # Make all start dates equal.
+        self.metadata['start_date'] = [self.metadata['start_date'][0]]*3
+
+        # Add an auto close date column, where liquidation occurs the day after
+        # the end date.
+        self.metadata['auto_close_date'] = \
+            self.metadata['end_date'] + trading_day
+
+        index_x = self.env.trading_days[ix:ix + 3]
+        data_x = pd.DataFrame(
+            data=[[1, 100], [2, 100], [3, 100]],
+            index=index_x,
+            columns=['price', 'volume'],
+        )
+        index_y = self.env.trading_days[ix:ix + 5]
+        data_y = pd.DataFrame(
+            data=[[4, 100], [5, 100], [6, 100], [7, 100], [8, 100]],
+            index=index_y,
+            columns=['price', 'volume'],
+        )
+        index_z = self.env.trading_days[ix:ix + 7]
+        data_z = pd.DataFrame(
+            data=[
+                [9, 100], [10, 100], [11, 100], [12, 100], [13, 100],
+                [14, 100], [15, 100],
+            ],
+            index=index_z,
+            columns=['price', 'volume'],
+        )
+
+        pan = pd.Panel({0: data_x, 1: data_y, 2: data_z})
+        self.source = DataPanelSource(pan)
+
+    def tearDown(self):
+        del self.env
+
+    def test_delisted_securities(self):
+        """
+        Make sure that after a security gets delisted, our portfolio holds the
+        correct number of securities and correct amount of cash.
+        """
+        self.env.write_data(equities_df=self.metadata)
+        algo = TestLiquidationAlgorithm(env=self.env)
+        algo.run(self.source)
+
+        expected_cash = [100000, 99830, 99830, 99860, 99860, 99940, 99940]
+        expected_num_positions = [0, 3, 3, 2, 2, 1, 1]
+        self.assertEqual(algo.cash, expected_cash)
+        self.assertEqual(algo.num_positions, expected_num_positions)
+
+    def test_delisted_securities_with_lag(self):
+        """
+        Test that an equity's auto close date functions properly when it is
+        set multiple days after the equity's end date.
+        """
+        # Add an auto close date column, where liquidation occurs 2 days after
+        # the end date.
+        metadata = self.metadata.copy()
+        metadata['auto_close_date'] = metadata['end_date'] + (2 * trading_day)
+
+        self.env.write_data(equities_df=metadata)
+        algo = TestLiquidationAlgorithm(env=self.env)
+        algo.run(self.source)
+
+        expected_cash = [100000, 99830, 99830, 99830, 99860, 99860, 99940]
+        expected_num_positions = [0, 3, 3, 3, 2, 2, 1]
+        self.assertEqual(algo.cash, expected_cash)
+        self.assertEqual(algo.num_positions, expected_num_positions)
+
+    def test_cancel_open_orders(self):
+        """
+        Test that any open orders for a security that gets delisted are
+        canceled.
+        """
+        self.env.write_data(equities_df=self.metadata)
+        algo = TestLiquidationAlgorithm(env=self.env)
+        algo.run(self.source)
+
+        # Assert that we have no open orders
+        self.assertFalse(algo.blotter.open_orders)
+
+    def test_equity_close_date(self):
+        """
+        Make sure that every equity's auto close date is after its end date.
+        """
+        pass
