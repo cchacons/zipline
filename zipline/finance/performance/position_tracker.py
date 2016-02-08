@@ -155,9 +155,6 @@ class PositionTracker(object):
         # }
         self._auto_close_position_sids = {}
 
-        # This is used to keep track of the sids of "expired" equities.
-        self._past_equity_sids = set()
-
     def _update_asset(self, sid):
         try:
             self._position_value_multipliers[sid]
@@ -231,7 +228,6 @@ class PositionTracker(object):
             past_asset_end_dates.add(date)
 
             for sid in dict_['equity']:
-                self._past_equity_sids.add(sid)
                 yield generate_close_event(sid, date)
 
             for sid in dict_['future']:
@@ -473,7 +469,6 @@ class PositionTracker(object):
         state_dict['positions'] = dict(self.positions)
         state_dict['unpaid_dividends'] = self._unpaid_dividends
         state_dict['auto_close_position_sids'] = self._auto_close_position_sids
-        state_dict['past_equity_sids'] = self._past_equity_sids
 
         STATE_VERSION = 3
         state_dict[VERSION_LABEL] = STATE_VERSION
@@ -494,7 +489,6 @@ class PositionTracker(object):
 
         self._unpaid_dividends = state['unpaid_dividends']
         self._auto_close_position_sids = state['auto_close_position_sids']
-        self._past_equity_sids = state['past_equity_sids']
 
         # Arrays for quick calculations of positions value
         self._position_value_multipliers = OrderedDict()

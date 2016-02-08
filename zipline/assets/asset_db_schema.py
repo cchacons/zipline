@@ -45,8 +45,8 @@ def _equities_table_schema(metadata):
         sa.Column('asset_name', sa.Text),
         sa.Column('start_date', sa.Integer, default=0, nullable=False),
         sa.Column('end_date', sa.Integer, nullable=False),
-        sa.Column('auto_close_date', sa.Integer),
         sa.Column('first_traded', sa.Integer, nullable=False),
+        sa.Column('auto_close_date', sa.Integer),
         sa.Column('exchange', sa.Text),
     )
 

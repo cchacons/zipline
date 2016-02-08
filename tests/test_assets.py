@@ -177,8 +177,8 @@ class AssetTestCase(TestCase):
                    'asset_name',
                    'start_date',
                    'end_date',
-                   'auto_close_date',
                    'first_traded',
+                   'auto_close_date',
                    'exchange']
 
     # Very wow
@@ -188,8 +188,8 @@ class AssetTestCase(TestCase):
         asset_name="DOGECOIN",
         start_date=pd.Timestamp('2013-12-08 9:31AM', tz='UTC'),
         end_date=pd.Timestamp('2014-06-25 11:21AM', tz='UTC'),
-        auto_close_date=pd.Timestamp('2014-06-26 11:21AM', tz='UTC'),
         first_traded=pd.Timestamp('2013-12-08 9:31AM', tz='UTC'),
+        auto_close_date=pd.Timestamp('2014-06-26 11:21AM', tz='UTC'),
         exchange='THE MOON',
     )
 

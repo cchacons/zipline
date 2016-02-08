@@ -1882,7 +1882,7 @@ class TestClosePosAlgo(TestCase):
         # Check results
         results = algo.run(data)
 
-        expected_positions = [0, 1, 1, 1]
+        expected_positions = [0, 1, 1, 0]
         self.check_algo_positions(results, expected_positions)
 
         expected_pnl = [0, 0, 1, 2]
@@ -2117,9 +2117,3 @@ class TestAssetAutoClose(TestCase):
 
         # Assert that we have no open orders
         self.assertFalse(algo.blotter.open_orders)
-
-    def test_equity_close_date(self):
-        """
-        Make sure that every equity's auto close date is after its end date.
-        """
-        pass
