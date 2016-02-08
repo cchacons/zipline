@@ -50,7 +50,6 @@ cdef class Asset:
 
     cdef readonly object start_date
     cdef readonly object end_date
-    cdef readonly object auto_close_date
     cdef public object first_traded
     cdef readonly object auto_close_date
 
@@ -62,7 +61,6 @@ cdef class Asset:
                   object asset_name="",
                   object start_date=None,
                   object end_date=None,
-                  object auto_close_date=None,
                   object first_traded=None,
                   object auto_close_date=None,
                   object exchange="",
@@ -151,7 +149,6 @@ cdef class Asset:
                                  self.asset_name,
                                  self.start_date,
                                  self.end_date,
-                                 self.auto_close_date,
                                  self.first_traded,
                                  self.auto_close_date,
                                  self.exchange,))
@@ -166,7 +163,6 @@ cdef class Asset:
             'asset_name': self.asset_name,
             'start_date': self.start_date,
             'end_date': self.end_date,
-            'auto_close_date': self.auto_close_date,
             'first_traded': self.first_traded,
             'auto_close_date': self.auto_close_date,
             'exchange': self.exchange,

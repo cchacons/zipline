@@ -134,9 +134,9 @@ class AlgorithmSimulator(object):
                         del self.current_data[sid]
                     except KeyError:
                         continue
-                    finally:
-                        asset = self.env.asset_finder.retrieve_asset(sid)
-                        self.algo.blotter.open_orders.pop(asset, None)
+                    else:
+                        # Remove any open orders for the expired asset.
+                        self.algo.blotter.open_orders.pop(sid, None)
 
                 # If we're still in the warmup period.  Use the event to
                 # update our universe, but don't yield any perf messages,
