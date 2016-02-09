@@ -18,6 +18,7 @@ from __future__ import division
 import logbook
 import numpy as np
 import pandas as pd
+import uuid
 from pandas.lib import checknull
 from collections import namedtuple
 try:
@@ -26,6 +27,7 @@ try:
 except ImportError:
     from collections import OrderedDict
 from six import iteritems, itervalues
+
 
 from zipline.protocol import Event, DATASOURCE_TYPE
 from zipline.finance.transaction import Transaction
@@ -383,7 +385,7 @@ class PositionTracker(object):
             dt=event.dt,
             price=price,
             commission=0,
-            order_id=0
+            order_id=uuid.uuid4().hex,
         )
         return txn
 

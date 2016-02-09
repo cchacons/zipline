@@ -963,7 +963,6 @@ class TestLiquidationAlgorithm(TradingAlgorithm):
             for s in data:
                 self.order(self.sid(s), 10)
 
-        # if self.get_datetime() > data[0]['dt']:
         if self.get_datetime() == pd.Timestamp('2015-01-07', tz='UTC'):
             # This creates a persisting open order, as Equity 0 will delist.
             self.order(self.sid(0), 10)

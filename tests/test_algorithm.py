@@ -1882,7 +1882,7 @@ class TestClosePosAlgo(TestCase):
         # Check results
         results = algo.run(data)
 
-        expected_positions = [0, 1, 1, 0]
+        expected_positions = [0, 1, 1, 1]
         self.check_algo_positions(results, expected_positions)
 
         expected_pnl = [0, 0, 1, 2]
