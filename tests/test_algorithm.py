@@ -1821,18 +1821,19 @@ class TestClosePosAlgo(TestCase):
 
     def setUp(self):
         self.env = TradingEnvironment()
-        self.days = self.env.trading_days[:4]
+        self.days = self.env.trading_days[:5]
         self.panel = pd.Panel({1: pd.DataFrame({
             'price': [1, 1, 2, 4], 'volume': [1e9, 1e9, 1e9, 0],
             'type': [DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.CLOSE_POSITION]},
-            index=self.days)
+            index=self.days[:4])
         })
         self.no_close_panel = pd.Panel({1: pd.DataFrame({
-            'price': [1, 1, 2, 4], 'volume': [1e9, 1e9, 1e9, 1e9],
+            'price': [1, 1, 2, 4, 4], 'volume': [1e9, 1e9, 1e9, 1e9, 1e9],
             'type': [DATASOURCE_TYPE.TRADE,
+                     DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE]},
@@ -1882,10 +1883,10 @@ class TestClosePosAlgo(TestCase):
         # Check results
         results = algo.run(data)
 
-        expected_positions = [0, 1, 1, 1]
+        expected_positions = [0, 1, 1, 1, 0]
         self.check_algo_positions(results, expected_positions)
 
-        expected_pnl = [0, 0, 1, 2]
+        expected_pnl = [0, 0, 1, 2, 0]
         self.check_algo_pnl(results, expected_pnl)
 
     def check_algo_pnl(self, results, expected_pnl):
