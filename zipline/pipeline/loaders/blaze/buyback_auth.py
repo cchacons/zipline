@@ -17,7 +17,7 @@ VALUE_FIELD_NAME = 'values'
 
 
 class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
-    """A pipeline loader for the ``BuybackAuth`` dataset that loads
+    """A pipeline loader for the ``CashBuybackAuthorizations`` dataset that loads
     data from a blaze expression.
 
     Parameters
@@ -32,6 +32,7 @@ class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
         The time to use for the data query cutoff.
     data_query_tz : tzinfo or str
         The timezeone to use for the data query cutoff.
+    dataset:
 
     Notes
     -----
@@ -67,16 +68,27 @@ class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
 
     def __init__(self,
                  expr,
+                 resources=None,
+                 odo_kwargs=None,
+                 data_query_time=None,
+                 data_query_tz=None,
                  dataset=CashBuybackAuthorizations,
                  loader=CashBuybackAuthorizationsLoader,
                  **kwargs):
         super(
             BlazeCashBuybackAuthorizationsLoader, self
-        ).__init__(expr, dataset=dataset, loader=loader, **kwargs)
+        ).__init__(expr,
+                   resources=resources,
+                   odo_kwargs=odo_kwargs,
+                   data_query_time=data_query_time,
+                   data_query_tz=data_query_tz,
+                   dataset=dataset,
+                   loader=loader,
+                   **kwargs)
 
 
 class BlazeShareBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
-    """A pipeline loader for the ``BuybackAuth`` dataset that loads
+    """A pipeline loader for the ``ShareBuybackAuthorizations`` dataset that loads
     data from a blaze expression.
 
     Parameters
@@ -126,9 +138,20 @@ class BlazeShareBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
 
     def __init__(self,
                  expr,
+                 resources=None,
+                 odo_kwargs=None,
+                 data_query_time=None,
+                 data_query_tz=None,
                  dataset=ShareBuybackAuthorizations,
                  loader=ShareBuybackAuthorizationsLoader,
                  **kwargs):
         super(
             BlazeShareBuybackAuthorizationsLoader, self
-        ).__init__(expr, dataset=dataset, loader=loader, **kwargs)
+        ).__init__(expr,
+                   resources=resources,
+                   odo_kwargs=odo_kwargs,
+                   data_query_time=data_query_time,
+                   data_query_tz=data_query_tz,
+                   dataset=dataset,
+                   loader=loader,
+                   **kwargs)

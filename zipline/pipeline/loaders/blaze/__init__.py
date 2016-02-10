@@ -1,6 +1,7 @@
+
 from .buyback_auth import (
-    CashBuybackAuthorizationsLoader,
-    ShareBuybackAuthorizationsLoader
+    BlazeCashBuybackAuthorizationsLoader,
+    BlazeShareBuybackAuthorizationsLoader
 )
 from .core import (
     AD_FIELD_NAME,
@@ -24,14 +25,14 @@ from .earnings import (
 __all__ = (
     'AD_FIELD_NAME',
     'ANNOUNCEMENT_FIELD_NAME',
+    'BlazeCashBuybackAuthorizationsLoader',
     'BlazeEarningsCalendarLoader',
     'BlazeLoader',
+    'BlazeShareBuybackAuthorizationsLoader',
     'BUYBACK_ANNOUNCEMENT_FIELD_NAME',
-    'CashBuybackAuthorizationsLoader',
     'NoDeltasWarning',
     'SHARE_COUNT_FIELD_NAME',
     'SID_FIELD_NAME',
-    'ShareBuybackAuthorizationsLoader',
     'TS_FIELD_NAME',
     'VALUE_FIELD_NAME',
     'from_blaze',
