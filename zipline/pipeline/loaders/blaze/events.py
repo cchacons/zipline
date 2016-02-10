@@ -16,7 +16,6 @@ from zipline.utils.input_validation import ensure_timezone, optionally
 from zipline.utils.preprocess import preprocess
 
 
-
 class BlazeEventsCalendarLoader(PipelineLoader):
     """An abstract pipeline loader for the events datasets that loads
     data from a blaze expression.

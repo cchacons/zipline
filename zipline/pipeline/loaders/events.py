@@ -67,11 +67,9 @@ class EventsLoader(PipelineLoader):
 
         self.dataset = dataset
 
-
     @abstractmethod
     def get_loader(self):
         raise NotImplementedError("Must implement 'get_loader'.")
-
 
     def load_adjusted_array(self, columns, dates, assets, mask):
         return merge(
@@ -96,7 +94,9 @@ class EventsLoader(PipelineLoader):
             adjustments=None,
         )
 
-    def _previous_event_date_loader(self, prev_date_field, event_date_field_name):
+    def _previous_event_date_loader(self,
+                                    prev_date_field,
+                                    event_date_field_name):
         return DataFrameLoader(
             prev_date_field,
             previous_date_frame(
@@ -124,5 +124,3 @@ class EventsLoader(PipelineLoader):
             ),
             adjustments=None,
         )
-
-

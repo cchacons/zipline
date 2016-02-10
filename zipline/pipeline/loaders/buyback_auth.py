@@ -37,7 +37,6 @@ class CashBuybackAuthorizationsLoader(EventsLoader):
             dataset=dataset
         )
 
-
     def get_loader(self, column):
         """dispatch to the loader for ``column``.
         """
@@ -47,7 +46,6 @@ class CashBuybackAuthorizationsLoader(EventsLoader):
             return self.previous_event_date_loader
         else:
             raise ValueError("Don't know how to load column '%s'." % column)
-
 
     @lazyval
     def previous_buyback_value_loader(self):
@@ -90,7 +88,6 @@ class ShareBuybackAuthorizationsLoader(EventsLoader):
             dataset=dataset
         )
 
-
     def get_loader(self, column):
         """dispatch to the loader for ``column``.
         """
@@ -100,7 +97,6 @@ class ShareBuybackAuthorizationsLoader(EventsLoader):
             return self.previous_event_date_loader
         else:
             raise ValueError("Don't know how to load column '%s'." % column)
-
 
     @lazyval
     def previous_buyback_share_count_loader(self):
