@@ -11,6 +11,7 @@ from .utils import next_date_frame, previous_date_frame, previous_value
 
 TS_FIELD_NAME = "timestamp"
 
+
 class EventsLoader(PipelineLoader):
     """
     Abstract loader.
@@ -38,7 +39,6 @@ class EventsLoader(PipelineLoader):
         Whether to allow passing ``DatetimeIndex`` values in
         ``announcement_dates``.
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self,
                  all_dates,
@@ -118,9 +118,10 @@ class EventsLoader(PipelineLoader):
                 self.events_by_sid,
                 event_date_field_name,
                 value_field_name,
+                previous_value_field.dtype,
                 # TODO: need to get actual name/method to use to get missing
                 # value
-                previous_value_field.missing_value
+                None
             ),
             adjustments=None,
         )
