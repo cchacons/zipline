@@ -13,19 +13,13 @@ SHARE_COUNT_FIELD_NAME = 'share_counts'
 VALUE_FIELD_NAME = 'values'
 
 
-# TODO:  split into 2 datasets - or just think about how to generalize since
-# we will often have cases where we have a knowledge date and, optionally,
-# a value for that event; having no value (like earnings) is a special case.
 class CashBuybackAuthorizationsLoader(EventsLoader):
     """
     Reference loader for
-    :class:`zipline.pipeline.data.earnings.BuybackAuthorizations`.
-
-    Does not currently support adjustments to the dates of known buyback
-    authorizations.
+    :class:`zipline.pipeline.data.earnings.CashBuybackAuthorizations`.
 
     events_by_sid: dict[sid -> pd.DataFrame(knowledge date,
-    event date, value)]
+    event date, cash value)]
 
     """
 
@@ -72,13 +66,13 @@ class CashBuybackAuthorizationsLoader(EventsLoader):
 class ShareBuybackAuthorizationsLoader(EventsLoader):
     """
     Reference loader for
-    :class:`zipline.pipeline.data.earnings.BuybackAuthorizations`.
+    :class:`zipline.pipeline.data.earnings.ShareBuybackAuthorizations`.
 
     Does not currently support adjustments to the dates of known buyback
     authorizations.
 
     events_by_sid: dict[sid -> pd.DataFrame(knowledge date,
-    event date, value)]
+    event date, share value)]
 
     """
 
