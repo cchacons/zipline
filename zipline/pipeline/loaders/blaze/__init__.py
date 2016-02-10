@@ -15,7 +15,7 @@ from .core import (
 from .buyback_auth import (
     BUYBACK_ANNOUNCEMENT_FIELD_NAME,
     SHARE_COUNT_FIELD_NAME,
-    VALUE_FIELD_NAME
+    CASH_FIELD_NAME
 )
 from .earnings import (
     ANNOUNCEMENT_FIELD_NAME,
@@ -34,7 +34,7 @@ __all__ = (
     'SHARE_COUNT_FIELD_NAME',
     'SID_FIELD_NAME',
     'TS_FIELD_NAME',
-    'VALUE_FIELD_NAME',
+    'CASH_FIELD_NAME',
     'from_blaze',
     'global_loader',
 )

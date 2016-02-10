@@ -5,15 +5,13 @@ from .core import (
 from zipline.pipeline.data import (CashBuybackAuthorizations,
                                    ShareBuybackAuthorizations)
 from zipline.pipeline.loaders.buyback_auth import (
+    BUYBACK_ANNOUNCEMENT_FIELD_NAME,
     CashBuybackAuthorizationsLoader,
-    ShareBuybackAuthorizationsLoader
+    CASH_FIELD_NAME,
+    ShareBuybackAuthorizationsLoader,
+    SHARE_COUNT_FIELD_NAME
 )
 from .events import BlazeEventsCalendarLoader
-
-
-BUYBACK_ANNOUNCEMENT_FIELD_NAME = 'buyback_dates'
-SHARE_COUNT_FIELD_NAME = 'share_counts'
-VALUE_FIELD_NAME = 'values'
 
 
 class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
@@ -32,7 +30,10 @@ class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
         The time to use for the data query cutoff.
     data_query_tz : tzinfo or str
         The timezeone to use for the data query cutoff.
-    dataset:
+    dataset: DataSet
+        The DataSet object for which this loader loads data.
+    loader: EventsLoader
+        The reference loader to use for this dataset.
 
     Notes
     -----
@@ -42,12 +43,12 @@ class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
            {SID_FIELD_NAME}: int64,
            {TS_FIELD_NAME}: datetime,
            {BUYBACK_ANNOUNCEMENT_FIELD_NAME}: ?datetime,
-           {VALUE_FIELD_NAME}: ?float64
+           {CASH_FIELD_NAME}: ?float64
        }}
 
     Where each row of the table is a record including the sid to identify the
     company, the timestamp where we learned about the announcement, the
-    date when the buyback was announced, the share count, and the value.
+    date when the buyback was announced, the share count, and the cash amount.
 
     If the '{TS_FIELD_NAME}' field is not included it is assumed that we
     start the backtest with knowledge of all announcements.
@@ -56,14 +57,14 @@ class BlazeCashBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
         TS_FIELD_NAME=TS_FIELD_NAME,
         SID_FIELD_NAME=SID_FIELD_NAME,
         BUYBACK_ANNOUNCEMENT_FIELD_NAME=BUYBACK_ANNOUNCEMENT_FIELD_NAME,
-        VALUE_FIELD_NAME=VALUE_FIELD_NAME
+        CASH_FIELD_NAME=CASH_FIELD_NAME
     )
 
     _expected_fields = frozenset({
         TS_FIELD_NAME,
         SID_FIELD_NAME,
         BUYBACK_ANNOUNCEMENT_FIELD_NAME,
-        VALUE_FIELD_NAME
+        CASH_FIELD_NAME
     })
 
     def __init__(self,
@@ -103,6 +104,10 @@ class BlazeShareBuybackAuthorizationsLoader(BlazeEventsCalendarLoader):
         The time to use for the data query cutoff.
     data_query_tz : tzinfo or str
         The timezeone to use for the data query cutoff.
+    dataset: DataSet
+        The DataSet object for which this loader loads data.
+    loader: EventsLoader
+        The reference loader to use for this dataset.
 
     Notes
     -----

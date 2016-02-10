@@ -7,8 +7,8 @@ import blaze as bz
 from blaze.compute.core import swap_resources_into_scope
 from contextlib2 import ExitStack
 from nose_parameterized import parameterized
-import pandas as pd
 import numpy as np
+import pandas as pd
 from pandas.util.testing import assert_series_equal
 from six import iteritems
 
@@ -16,8 +16,8 @@ from zipline.pipeline import Pipeline
 from zipline.pipeline.data import EarningsCalendar
 from zipline.pipeline.engine import SimplePipelineEngine
 from zipline.pipeline.factors.events import (
-    BusinessDaysUntilNextEarnings,
     BusinessDaysSincePreviousEarnings,
+    BusinessDaysUntilNextEarnings,
 )
 from zipline.pipeline.loaders.earnings import EarningsCalendarLoader
 from zipline.pipeline.loaders.blaze import (
@@ -28,11 +28,10 @@ from zipline.pipeline.loaders.blaze import (
 )
 from zipline.utils.numpy_utils import make_datetime64D, NaTD
 from zipline.utils.test_utils import (
-    make_simple_equity_info,
-    tmp_asset_finder,
     gen_calendars,
-    to_series,
+    make_simple_equity_info,
     num_days_in_range,
+    tmp_asset_finder,
 )
 
 
@@ -387,13 +386,15 @@ class EarningsCalendarLoaderInferTimestampTestCase(TestCase):
         )
         assert_series_equal(
             pd.Series(loader.events_by_sid[0][ANNOUNCEMENT_FIELD_NAME]),
-            pd.Series(index=[dtx[0]] * 10, data=dtx,
+            pd.Series(index=[dtx[0]] * 10,
+                      data=dtx,
                       name=ANNOUNCEMENT_FIELD_NAME),
         )
         assert_series_equal(
             pd.Series(loader.events_by_sid[1][ANNOUNCEMENT_FIELD_NAME]),
             pd.Series(index=announcement_dates[1][TS_FIELD_NAME],
-                      data=np.array(announcement_dates[1][
-                          ANNOUNCEMENT_FIELD_NAME]),
+                      data=np.array(
+                          announcement_dates[1][ANNOUNCEMENT_FIELD_NAME]
+                      ),
                       name=ANNOUNCEMENT_FIELD_NAME)
         )

@@ -8,8 +8,8 @@ import blaze as bz
 from blaze.compute.core import swap_resources_into_scope
 from contextlib2 import ExitStack
 from nose_parameterized import parameterized
-import pandas as pd
 import numpy as np
+import pandas as pd
 from pandas.util.testing import assert_series_equal
 from six import iteritems
 
@@ -30,14 +30,14 @@ from zipline.pipeline.loaders.blaze import (
     SHARE_COUNT_FIELD_NAME,
     SID_FIELD_NAME,
     TS_FIELD_NAME,
-    VALUE_FIELD_NAME
+    CASH_FIELD_NAME
 )
 from zipline.utils.numpy_utils import make_datetime64D, np_NaT
 from zipline.utils.test_utils import (
-    make_simple_equity_info,
-    tmp_asset_finder,
     gen_calendars,
+    make_simple_equity_info,
     num_days_in_range,
+    tmp_asset_finder,
 )
 
 
@@ -56,7 +56,7 @@ buyback_authorizations = {
                 BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-15',
                                                                  '2014-01-20']),
                 SHARE_COUNT_FIELD_NAME: [1, 15],
-                VALUE_FIELD_NAME: [10, 20]
+                CASH_FIELD_NAME: [10, 20]
             }),
             # K1--K2--E2--E1.
             B: pd.DataFrame({
@@ -64,7 +64,7 @@ buyback_authorizations = {
                 BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
                     '2014-01-20', '2014-01-15'
                 ]),
-                SHARE_COUNT_FIELD_NAME: [7, 13], VALUE_FIELD_NAME: [10, 22]
+                SHARE_COUNT_FIELD_NAME: [7, 13], CASH_FIELD_NAME: [10, 22]
             }),
             # K1--E1--K2--E2.
             C: pd.DataFrame({
@@ -73,7 +73,7 @@ buyback_authorizations = {
                     '2014-01-10', '2014-01-20'
                 ]),
                 SHARE_COUNT_FIELD_NAME: [3, 1],
-                VALUE_FIELD_NAME: [4, 7]
+                CASH_FIELD_NAME: [4, 7]
             }),
             # K1 == K2.
             D: pd.DataFrame({
@@ -82,13 +82,13 @@ buyback_authorizations = {
                     '2014-01-10', '2014-01-15'
                 ]),
                 SHARE_COUNT_FIELD_NAME: [6, 23],
-                VALUE_FIELD_NAME: [1, 2]
+                CASH_FIELD_NAME: [1, 2]
             }),
             E: pd.DataFrame(
                 columns=["timestamp",
                          BUYBACK_ANNOUNCEMENT_FIELD_NAME,
                          SHARE_COUNT_FIELD_NAME,
-                         VALUE_FIELD_NAME],
+                         CASH_FIELD_NAME],
                 dtype='datetime64[ns]'
             ),
         }
@@ -328,7 +328,7 @@ class ShareBuybackAuthLoaderTestCase(BuybackAuthLoaderCommonTest, TestCase):
     """
     Test for share buyback authorizations dataset.
     """
-    buyback_authorizations = {sid: df.drop(VALUE_FIELD_NAME, 1)
+    buyback_authorizations = {sid: df.drop(CASH_FIELD_NAME, 1)
                               for sid, df in iteritems(buyback_authorizations)}
     pipeline_columns = {
         'previous_buyback_share_count':
@@ -396,8 +396,8 @@ def mapping_to_df(mapping):
                 frame[BUYBACK_ANNOUNCEMENT_FIELD_NAME],
             SHARE_COUNT_FIELD_NAME:
                 frame[SHARE_COUNT_FIELD_NAME],
-            VALUE_FIELD_NAME:
-                frame[VALUE_FIELD_NAME],
+            CASH_FIELD_NAME:
+                frame[CASH_FIELD_NAME],
             TS_FIELD_NAME:
                 frame[TS_FIELD_NAME],
             SID_FIELD_NAME: sid,

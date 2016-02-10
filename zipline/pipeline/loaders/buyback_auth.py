@@ -2,15 +2,17 @@
 Reference implementation for EarningsCalendar loaders.
 """
 
-from ..data.buyback_auth import CashBuybackAuthorizations, \
+from ..data.buyback_auth import (
+    CashBuybackAuthorizations,
     ShareBuybackAuthorizations
+)
 from events import EventsLoader
 from zipline.utils.memoize import lazyval
 
 
 BUYBACK_ANNOUNCEMENT_FIELD_NAME = 'buyback_dates'
 SHARE_COUNT_FIELD_NAME = 'share_counts'
-VALUE_FIELD_NAME = 'values'
+CASH_FIELD_NAME = 'cash'
 
 
 class CashBuybackAuthorizationsLoader(EventsLoader):
@@ -52,7 +54,7 @@ class CashBuybackAuthorizationsLoader(EventsLoader):
         return self._previous_event_value_loader(
             self.dataset.previous_value,
             BUYBACK_ANNOUNCEMENT_FIELD_NAME,
-            VALUE_FIELD_NAME
+            CASH_FIELD_NAME
         )
 
     @lazyval
