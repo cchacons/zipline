@@ -72,7 +72,6 @@ class AlgorithmSimulator(object):
                 return default + timedelta(microseconds=id(sid))
             except SidsNotFound:
                 return default
-
             # Default is used when the asset has no auto close date,
             # and is set to a time after the simulation ends, so that the
             # relevant asset isn't removed from the universe at all
@@ -185,7 +184,7 @@ class AlgorithmSimulator(object):
                         next_day = self.env.next_trading_day(date)
 
                         if next_day is not None and \
-                           next_day <= self.algo.perf_tracker.last_close:
+                           next_day < self.algo.perf_tracker.last_close:
                             self._call_before_trading_start(next_day)
 
                     self.algo.portfolio_needs_update = True

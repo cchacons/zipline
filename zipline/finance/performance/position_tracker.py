@@ -28,7 +28,6 @@ except ImportError:
     from collections import OrderedDict
 from six import iteritems, itervalues
 
-
 from zipline.protocol import Event, DATASOURCE_TYPE
 from zipline.finance.transaction import Transaction
 from zipline.utils.serialization_utils import (
@@ -148,13 +147,8 @@ class PositionTracker(object):
         )
         self._positions_store = zp.Positions()
 
-        # Dict mapping close position dates to dicts, keyed on asset types,
-        # containing sets of sids to be closed. For example:
-        # {
-        #     'date1': {'equity': set(), 'future': set()},
-        #     'date2': {'equity': set(), 'future': {1, 2}},
-        #     'date3': {'equity': {3, 4}, 'future': {5}},
-        # }
+        # Dict, keyed on dates, that contains sets of close position events for
+        # any Assets in this tracker's positions.
         self._auto_close_position_sids = {}
 
     def _update_asset(self, sid):
@@ -180,10 +174,9 @@ class PositionTracker(object):
             self._insert_auto_close_position_date(
                 dt=asset.auto_close_date,
                 sid=sid,
-                asset_type=asset.__class__.__name__.lower(),
             )
 
-    def _insert_auto_close_position_date(self, dt, sid, asset_type):
+    def _insert_auto_close_position_date(self, dt, sid):
         """
         Inserts the given SID in to the list of positions to be auto-closed by
         the given dt.
@@ -194,15 +187,9 @@ class PositionTracker(object):
             The date before-which the given SID will be auto-closed
         sid : int
             The SID of the Asset to be auto-closed
-        asset_type : str
-            The type of the Asset to be auto-closed.
-            Must either be 'equity' or 'future'.
         """
         if dt is not None:
-            self._auto_close_position_sids.setdefault(
-                dt, {'equity': set(), 'future': set()},
-            )
-            self._auto_close_position_sids[dt][asset_type].add(sid)
+            self._auto_close_position_sids.setdefault(dt, set()).add(sid)
 
     def auto_close_position_events(self, next_trading_day):
         """
@@ -223,16 +210,12 @@ class PositionTracker(object):
         past_asset_end_dates = set()
 
         # Check the auto_close_position_dates dict for SIDs to close
-        for date, dict_ in self._auto_close_position_sids.items():
+        for date, sids in self._auto_close_position_sids.items():
             if date > next_trading_day:
                 continue
-
             past_asset_end_dates.add(date)
 
-            for sid in dict_['equity']:
-                yield generate_close_event(sid, date)
-
-            for sid in dict_['future']:
+            for sid in sids:
                 yield generate_close_event(sid, date)
 
         # Clear out past dates
