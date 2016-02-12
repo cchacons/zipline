@@ -22,7 +22,9 @@ from unittest import TestCase
 
 import numpy as np
 import pandas as pd
+from contextlib2 import ExitStack
 
+from zipline.api import FixedSlippage
 from zipline.assets import Equity, Future
 from zipline.utils.api_support import ZiplineAPI
 from zipline.utils.control_flow import nullctx
@@ -51,7 +53,6 @@ from zipline.test_algorithms import (
     RecordAlgorithm,
     FutureFlipAlgo,
     TestAlgorithm,
-    TestLiquidationAlgorithm,
     TestOrderAlgorithm,
     TestOrderInstantAlgorithm,
     TestOrderPercentAlgorithm,
@@ -87,7 +88,8 @@ import zipline.utils.events
 from zipline.utils.test_utils import (
     assert_single_position,
     drain_zipline,
-    make_rotating_equity_info,
+    make_jagged_equity_info,
+    tmp_asset_finder,
     to_utc,
 )
 
@@ -104,7 +106,7 @@ from zipline.algorithm import TradingAlgorithm
 from zipline.protocol import DATASOURCE_TYPE
 from zipline.finance.trading import TradingEnvironment
 from zipline.finance.commission import PerShare
-from zipline.utils.tradingcalendar import trading_day
+from zipline.utils.tradingcalendar import trading_day, trading_days
 
 # Because test cases appear to reuse some resources.
 _multiprocess_can_split_ = False
@@ -2024,97 +2026,152 @@ class TestRemoveData(TestCase):
         np.testing.assert_array_equal(self.algo.data, expected_lengths)
 
 
-class TestAssetAutoClose(TestCase):
+class TestEquityAutoClose(TestCase):
     """
-    Tests if delisted securities are properly removed from a portfolio holding
-    positions in said securities.
+    Tests if delisted equities are properly removed from a portfolio holding
+    positions in said equities.
     """
-    def setUp(self):
-        dt = pd.Timestamp('2015-01-05', tz='UTC')
-        self.env = TradingEnvironment()
-        ix = self.env.trading_days.get_loc(dt)
+    @classmethod
+    def setUpClass(cls):
+        start_date = pd.Timestamp('2015-01-05', tz='UTC')
+        first_end_date = pd.Timestamp('2015-01-07', tz='UTC')
 
-        self.metadata = make_rotating_equity_info(
-            3, dt, trading_day, 2, 2,
+        # Start date index
+        sdi = trading_days.get_loc(start_date)
+
+        cls.metadata = make_jagged_equity_info(
+            num_assets=3,
+            start_date=start_date,
+            first_end=first_end_date,
+            frequency=trading_day,
+            periods_between_ends=2,
         )
-
-        # Make all start dates equal.
-        self.metadata['start_date'] = [self.metadata['start_date'][0]]*3
 
         # Add an auto close date column, where liquidation occurs the day after
         # the end date.
-        self.metadata['auto_close_date'] = \
-            self.metadata['end_date'] + trading_day
+        cls.metadata['auto_close_date'] = \
+            cls.metadata['end_date'] + trading_day
 
-        index_x = self.env.trading_days[ix:ix + 3]
-        data_x = pd.DataFrame(
-            data=[[1, 100], [2, 100], [3, 100]],
-            index=index_x,
-            columns=['price', 'volume'],
-        )
-        index_y = self.env.trading_days[ix:ix + 5]
-        data_y = pd.DataFrame(
-            data=[[4, 100], [5, 100], [6, 100], [7, 100], [8, 100]],
-            index=index_y,
-            columns=['price', 'volume'],
-        )
-        index_z = self.env.trading_days[ix:ix + 7]
-        data_z = pd.DataFrame(
-            data=[
-                [9, 100], [10, 100], [11, 100], [12, 100], [13, 100],
-                [14, 100], [15, 100],
-            ],
-            index=index_z,
+        # All equity prices start at 1 and increment each day.
+        # Volume traded of each equity each day is a constant 100.
+        prices = list(range(1, 8))
+        volume = [100]
+
+        # Data for source panel.
+        equity0_dates = trading_days[sdi:sdi + 3]
+        equity0_data = pd.DataFrame(
+            data=zip(prices[:3], volume * 3),
+            index=equity0_dates,
             columns=['price', 'volume'],
         )
 
-        pan = pd.Panel({0: data_x, 1: data_y, 2: data_z})
-        self.source = DataPanelSource(pan)
+        equity1_dates = trading_days[sdi:sdi + 5]
+        equity1_data = pd.DataFrame(
+            data=zip(prices[:5], volume * 5),
+            index=equity1_dates,
+            columns=['price', 'volume'],
+        )
 
-    def tearDown(self):
-        del self.env
+        equity2_dates = trading_days[sdi:sdi + 7]
+        equity2_data = pd.DataFrame(
+            data=zip(prices[:7], volume * 7),
+            index=equity2_dates,
+            columns=['price', 'volume'],
+        )
 
-    def test_delisted_securities(self):
+        # Indexed on sid
+        source_panel = pd.Panel(
+            {0: equity0_data, 1: equity1_data, 2: equity2_data},
+        )
+        cls.source = DataPanelSource(source_panel)
+
+        try:
+            cls.stack = ExitStack()
+            cls.finder = cls.stack.enter_context(
+                tmp_asset_finder(equities=cls.metadata),
+            )
+
+            # Manually set the trading environment's asset finder.
+            env = TradingEnvironment(asset_db_path=None)
+            env.asset_finder = cls.finder
+            env.engine = cls.finder.engine
+
+            def initialize(context):
+                context.ordered = False
+                context.set_commission(PerShare(0))
+                context.set_slippage(FixedSlippage(spread=0))
+                context.num_positions = []
+                context.cash = []
+
+            def handle_data(context, data):
+                if not context.ordered:
+                    for s in data:
+                        context.order(context.sid(s), 10)
+                    context.ordered = True
+
+                if context.get_datetime() == first_end_date:
+                    # This creates a persisting open order, as Equity 0 will
+                    # delist.
+                    context.order(context.sid(0), 10)
+
+                context.cash.append(context.portfolio.cash)
+                context.num_positions.append(len(context.portfolio.positions))
+
+            cls.algo = TradingAlgorithm(
+                initialize=initialize,
+                handle_data=handle_data,
+                env=env,
+            )
+        except:
+            cls.tearDownClass()
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.stack.close()
+
+    def test_delisted_equities(self):
         """
-        Make sure that after a security gets delisted, our portfolio holds the
-        correct number of securities and correct amount of cash.
+        Make sure that after an equity gets delisted, our portfolio holds the
+        correct number of equities and correct amount of cash.
         """
-        self.env.write_data(equities_df=self.metadata)
-        algo = TestLiquidationAlgorithm(env=self.env)
-        algo.run(self.source)
-
-        expected_cash = [100000, 99830, 99830, 99860, 99860, 99940, 99940]
+        # Day 1: Order 10 shares of each equity; there are 3 equities.
+        # Day 2: Order goes through with each equity at $2 per share.
+        #        This costs $60, so cash goes from $100,000 --> $99,940.
+        # Day 3: End date of Equity 0.
+        # Day 4: Auto close date of Equity 0. Its last close price was $3, so
+        #        we receive $30 and cash goes from $99,940 --> $99,970.
+        # Day 5: End date of Equity 1.
+        # Day 6: Auto close date of Equity 1. Its last close price was $5, so
+        #        we receive $50 and cash goes from $99,970 --> $100,020.
+        # Day 7: End date of Equity 2 and last day of backtest; no changes.
+        self.algo.run(self.source)
+        expected_cash = [100000, 99940, 99940, 99970, 99970, 100020, 100020]
         expected_num_positions = [0, 3, 3, 2, 2, 1, 1]
-        self.assertEqual(algo.cash, expected_cash)
-        self.assertEqual(algo.num_positions, expected_num_positions)
+        self.assertEqual(self.algo.cash, expected_cash)
+        self.assertEqual(self.algo.num_positions, expected_num_positions)
 
-    def test_delisted_securities_with_lag(self):
+    def test_delisted_equities_with_lag(self):
         """
         Test that an equity's auto close date functions properly when it is
         set multiple days after the equity's end date.
         """
-        # Add an auto close date column, where liquidation occurs 2 days after
-        # the end date.
-        metadata = self.metadata.copy()
-        metadata['auto_close_date'] = metadata['end_date'] + (2 * trading_day)
+        pass
 
-        self.env.write_data(equities_df=metadata)
-        algo = TestLiquidationAlgorithm(env=self.env)
-        algo.run(self.source)
-
-        expected_cash = [100000, 99830, 99830, 99830, 99860, 99860, 99940]
-        expected_num_positions = [0, 3, 3, 3, 2, 2, 1]
-        self.assertEqual(algo.cash, expected_cash)
-        self.assertEqual(algo.num_positions, expected_num_positions)
+    def test_short_position_cash(self):
+        """
+        Test that if a short position is held in an equity that gets delisted,
+        the value of the position is subtracted from the portfolio's cash.
+        Furthermore, if cash is zero, test that cash goes negative.
+        """
+        pass
 
     def test_cancel_open_orders(self):
         """
-        Test that any open orders for a security that gets delisted are
+        Test that any open orders for an equity that gets delisted are
         canceled.
         """
-        self.env.write_data(equities_df=self.metadata)
-        algo = TestLiquidationAlgorithm(env=self.env)
-        algo.run(self.source)
+        self.algo.run(self.source)
 
         # Assert that we have no open orders
-        self.assertFalse(algo.blotter.open_orders)
+        self.assertFalse(self.algo.blotter.open_orders)

@@ -22,7 +22,7 @@ from six.moves import filter, map
 from sqlalchemy import create_engine
 from toolz import concat
 
-from zipline.assets import AssetFinder
+from zipline.assets import AssetFinder, Equity
 from zipline.assets.asset_writer import AssetDBWriterFromDataFrame
 from zipline.assets.futures import CME_CODE_TO_MONTH
 from zipline.finance.order import ORDER_STATUS
@@ -344,6 +344,49 @@ def make_simple_equity_info(sids, start_date, end_date, symbols=None):
             'exchange': 'TEST',
         },
         index=sids,
+    )
+
+
+def make_jagged_equity_info(num_assets,
+                            start_date,
+                            first_end,
+                            frequency,
+                            periods_between_ends):
+    """
+    Create a DataFrame representing assets that all begin at the same start
+    date, but have cascading end dates.
+
+    Parameters
+    ----------
+    num_assets : int
+        How many assets to create.
+    start_date : pd.Timestamp
+        The start date for all the assets.
+    first_end : pd.Timestamp
+        The date at which the first equity will end.
+    frequency : str or pd.tseries.offsets.Offset (e.g. trading_day)
+        Frequency used to interpret the next argument.
+    periods_between_ends : int
+        Starting after the first end date, end each asset every
+        `frequency` * `periods_between_ends`.
+
+    Returns
+    -------
+    info : pd.DataFrame
+        DataFrame representing newly-created assets.
+    """
+    return pd.DataFrame(
+        {
+            'symbol': [chr(ord('A') + i) for i in range(num_assets)],
+            'start_date': start_date,
+            'end_date': pd.date_range(
+                first_end,
+                freq=(periods_between_ends * frequency),
+                periods=num_assets,
+            ),
+            'exchange': 'TEST',
+        },
+        index=range(num_assets),
     )
 
 
