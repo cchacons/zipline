@@ -17,8 +17,9 @@ from zipline.pipeline.data.equity_pricing import USEquityPricing
 
 class Block(object):
 
-    def __init__(self, array, days):
+    def __init__(self, array, adjustments, days):
         self.array = array
+        self.adjustments = adjustments
         self.days = days
 
     def get_slice(self, start, end):
@@ -48,7 +49,8 @@ class USEquityHistoryLoader(object):
         array = self._daily_reader.load_raw_arrays(
             [col], start, prefetch_end, [asset])
         days = cal[cal.slice_indexer(start, prefetch_end)]
-        block = Block(array, days)
+        adjs = self._adjustments_reader.load_adjustments([col], days, [asset])
+        block = Block(array, adjs, days)
         self._daily_window_blocks[asset] = block
 
     def _window(self, asset, start, end, field):
