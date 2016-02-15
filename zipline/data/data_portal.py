@@ -25,6 +25,7 @@ from six.moves import reduce
 
 from zipline.assets import Asset, Future, Equity
 from zipline.data.us_equity_pricing import NoDataOnDate
+from zipline.data.us_equity_loader import USEquityHistoryLoader
 
 from zipline.utils import tradingcalendar
 from zipline.utils.memoize import remember_last
@@ -70,7 +71,6 @@ class DataPortal(object):
             'close': {},
             'volume': {},
             'sid': {},
-            'dt': {},
         }
 
         self._adjustment_reader = adjustment_reader
@@ -89,6 +89,11 @@ class DataPortal(object):
         self._extra_source_df = None
 
         self._equity_daily_reader = equity_daily_reader
+        if self._equity_daily_reader is not None:
+            self._equity_history_loader = USEquityHistoryLoader(
+                self._equity_daily_reader,
+                self._adjustment_reader
+            )
         self._equity_minute_reader = equity_minute_reader
         self._future_daily_reader = future_daily_reader
         self._future_minute_reader = future_minute_reader
@@ -1033,10 +1038,10 @@ class DataPortal(object):
             active_days = days_in_window[day_slice]
 
         if len(active_days) > 0:
-            data = self._equity_daily_reader.history_window(field,
-                                                            active_days[0],
-                                                            active_days[-1],
-                                                            asset)
+            data = self._equity_history_loader.history(asset,
+                                                       active_days[0],
+                                                       active_days[-1],
+                                                       field)
             return_array[day_slice] = data
             self._apply_all_adjustments(
                 return_array,
