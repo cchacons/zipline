@@ -45,17 +45,14 @@ class USEquityHistoryLoader(object):
 
         col = getattr(USEquityPricing, field)
         cal = self._daily_reader._calendar
-        prefetch_end = cal[min(cal.searchsorted(end) + 40, len(cal))]
+        prefetch_end = cal[min(cal.searchsorted(end) + 40, len(cal) - 1)]
         array = self._daily_reader.load_raw_arrays(
-            [col], start, prefetch_end, [asset])
+            [col], start, prefetch_end, [asset])[0][:, 0]
         days = cal[cal.slice_indexer(start, prefetch_end)]
         adjs = self._adjustments_reader.load_adjustments([col], days, [asset])
         block = Block(array, adjs, days)
         self._daily_window_blocks[asset] = block
 
-    def _window(self, asset, start, end, field):
-        self._ensure_block(asset, start, end, field)
-        self._daily_window_blocks[asset].get_slice(start, end)
-
     def history(self, asset, start, end, field):
-        return self._window(asset, start, end, field)
+        self._ensure_block(asset, start, end, field)
+        return self._daily_window_blocks[asset].get_slice(start, end)
