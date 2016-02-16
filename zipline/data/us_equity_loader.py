@@ -53,7 +53,7 @@ class USEquityHistoryLoader(object):
             [col], start, prefetch_end, [asset])[0][:, 0]
         days = cal[start_ix:prefetch_end_ix]
         adjs = self._adjustments_reader.load_adjustments([col], days, [asset])
-        block = Block(array, adjs, start_ix, end_ix)
+        block = Block(array, adjs, start_ix, prefetch_end_ix)
         self._daily_window_blocks[asset] = block
 
     def history(self, asset, start, end, field):
