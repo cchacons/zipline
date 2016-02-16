@@ -2027,6 +2027,9 @@ class TestRemoveData(TestCase):
         np.testing.assert_array_equal(self.algo.data, expected_lengths)
 
 
+from nose.tools import set_trace
+
+
 class TestEquityAutoClose(TestCase):
     """
     Tests if delisted equities are properly removed from a portfolio holding
@@ -2035,7 +2038,7 @@ class TestEquityAutoClose(TestCase):
     @classmethod
     def setUpClass(cls):
         start_date = pd.Timestamp('2015-01-05', tz='UTC')
-        first_end_date = pd.Timestamp('2015-01-07', tz='UTC')
+        cls.first_end_date = pd.Timestamp('2015-01-07', tz='UTC')
 
         # Start date index
         sdi = trading_days.get_loc(start_date)
@@ -2043,7 +2046,7 @@ class TestEquityAutoClose(TestCase):
         cls.metadata = make_jagged_equity_info(
             num_assets=3,
             start_date=start_date,
-            first_end=first_end_date,
+            first_end=cls.first_end_date,
             frequency=trading_day,
             periods_between_ends=2,
         )
@@ -2081,51 +2084,35 @@ class TestEquityAutoClose(TestCase):
         )
 
         # Indexed on sid
-        source_panel = pd.Panel(
+        cls.source_panel = pd.Panel(
             {0: equity0_data, 1: equity1_data, 2: equity2_data},
         )
-        cls.source = DataPanelSource(source_panel)
+
+        def initialize(context):
+            context.ordered = False
+            context.set_commission(PerShare(0))
+            context.set_slippage(FixedSlippage(spread=0))
+            context.num_positions = []
+            context.cash = []
+
+        cls.initialize = initialize
 
         try:
             cls.stack = ExitStack()
-            cls.finder = cls.stack.enter_context(
+            finder = cls.stack.enter_context(
                 tmp_asset_finder(equities=cls.metadata),
             )
 
             # Manually set the trading environment's asset finder.
-            env = TradingEnvironment(asset_db_path=None)
-            env.asset_finder = cls.finder
-            env.engine = cls.finder.engine
-
-            def initialize(context):
-                context.ordered = False
-                context.set_commission(PerShare(0))
-                context.set_slippage(FixedSlippage(spread=0))
-                context.num_positions = []
-                context.cash = []
-
-            def handle_data(context, data):
-                if not context.ordered:
-                    for s in data:
-                        context.order(context.sid(s), 10)
-                    context.ordered = True
-
-                if context.get_datetime() == first_end_date:
-                    # This creates a persisting open order, as Equity 0 will
-                    # delist.
-                    context.order(context.sid(0), 10)
-
-                context.cash.append(context.portfolio.cash)
-                context.num_positions.append(len(context.portfolio.positions))
-
-            cls.algo = TradingAlgorithm(
-                initialize=initialize,
-                handle_data=handle_data,
-                env=env,
-            )
+            cls.env = TradingEnvironment(asset_db_path=None)
+            cls.env.asset_finder = finder
+            cls.env.engine = finder.engine
         except:
             cls.tearDownClass()
             raise
+
+    def setUp(self):
+        self.source = DataPanelSource(self.source_panel)
 
     @classmethod
     def tearDownClass(cls):
@@ -2136,6 +2123,22 @@ class TestEquityAutoClose(TestCase):
         Make sure that after an equity gets delisted, our portfolio holds the
         correct number of equities and correct amount of cash.
         """
+        def handle_data(context, data):
+            if not context.ordered:
+                for s in data:
+                    context.order(context.sid(s), 10)
+                context.ordered = True
+
+            context.cash.append(context.portfolio.cash)
+            context.num_positions.append(len(context.portfolio.positions))
+
+        algo = TradingAlgorithm(
+            initialize=self.initialize.im_func,
+            handle_data=handle_data,
+            env=self.env,
+        )
+        algo.run(self.source)
+
         # Day 1: Order 10 shares of each equity; there are 3 equities.
         # Day 2: Order goes through with each equity at $2 per share.
         #        This costs $60, so cash goes from $100,000 --> $99,940.
@@ -2146,11 +2149,10 @@ class TestEquityAutoClose(TestCase):
         # Day 6: Auto close date of Equity 1. Its last close price was $5, so
         #        we receive $50 and cash goes from $99,970 --> $100,020.
         # Day 7: End date of Equity 2 and last day of backtest; no changes.
-        self.algo.run(self.source)
         expected_cash = [100000, 99940, 99940, 99970, 99970, 100020, 100020]
         expected_num_positions = [0, 3, 3, 2, 2, 1, 1]
-        self.assertEqual(self.algo.cash, expected_cash)
-        self.assertEqual(self.algo.num_positions, expected_num_positions)
+        self.assertEqual(algo.cash, expected_cash)
+        self.assertEqual(algo.num_positions, expected_num_positions)
 
     def test_delisted_equities_with_lag(self):
         """
@@ -2165,14 +2167,73 @@ class TestEquityAutoClose(TestCase):
         the value of the position is subtracted from the portfolio's cash.
         Furthermore, if cash is zero, test that cash goes negative.
         """
-        pass
+        def handle_data(context, data):
+            if not context.ordered:
+                for s in data:
+                    context.order(context.sid(s), -10)
+                context.ordered = True
+
+            context.cash.append(context.portfolio.cash)
+            context.num_positions.append(len(context.portfolio.positions))
+
+        algo = TradingAlgorithm(
+            initialize=self.initialize.im_func,
+            handle_data=handle_data,
+            env=self.env,
+        )
+        algo.run(self.source)
+
+        expected_cash = [100000, 100060, 100060, 100030, 100030, 99980, 99980]
+        expected_num_positions = [0, 3, 3, 2, 2, 1, 1]
+        self.assertEqual(algo.cash, expected_cash)
+        self.assertEqual(algo.num_positions, expected_num_positions)
+
+        # Now run it again with zero starting dollars.
+        source = DataPanelSource(self.source_panel)
+        algo = TradingAlgorithm(
+            initialize=self.initialize.im_func,
+            handle_data=handle_data,
+            env=self.env,
+            capital_base=0,
+        )
+        algo.run(source)
+
+        # Make sure we go negative in cash.
+        expected_cash = [0, 60, 60, 30, 30, -20, -20]
+        expected_num_positions = [0, 3, 3, 2, 2, 1, 1]
+        self.assertEqual(algo.cash, expected_cash)
+        self.assertEqual(algo.num_positions, expected_num_positions)
 
     def test_cancel_open_orders(self):
         """
         Test that any open orders for an equity that gets delisted are
-        canceled.
+        canceled. Unless an equity is auto closed, any open orders for that
+        equity will persist indefinitely.
         """
-        self.algo.run(self.source)
+        def handle_data(context, data):
+            if context.get_datetime() == self.first_end_date:
+                # Equity 0 will no longer exist tomorrow, so this order will
+                # never be filled.
+                context.order(context.sid(0), 10)
+
+            if context.get_datetime() == self.first_end_date + trading_day:
+                # Confirm that we have a lingering open order.
+                assert len(context.blotter.open_orders) == 1
+
+            if context.get_datetime() == \
+                    self.first_end_date + (2 * trading_day):
+                # Confirm that our order no longer exists and was never placed.
+                assert len(context.blotter.open_orders) == 0
+                assert (
+                    context.portfolio.cash == context.portfolio.starting_cash
+                )
+
+        algo = TradingAlgorithm(
+            initialize=self.initialize.im_func,
+            handle_data=handle_data,
+            env=self.env,
+        )
+        algo.run(self.source)
 
         # Assert that we have no open orders
-        self.assertFalse(self.algo.blotter.open_orders)
+        self.assertFalse(algo.blotter.open_orders)
