@@ -120,8 +120,7 @@ class EarningsCalendarLoaderTestCase(TestCase):
 
         def zip_with_dates(dts):
             return pd.Series(pd.to_datetime(dts), index=dates)
-        # TODO: tests will break because I now need mappings of sid ->
-        # dataframe instead of sid -> series
+
         _expected_next_announce = pd.DataFrame({
             A: zip_with_dates(
                 ['NaT'] * num_days_between(None, '2014-01-04') +
@@ -373,7 +372,9 @@ class EarningsCalendarLoaderInferTimestampTestCase(TestCase):
         dtx = pd.date_range('2014-01-01', '2014-01-10')
         announcement_dates = {
             0: pd.DataFrame({ANNOUNCEMENT_FIELD_NAME: dtx}),
-            1: pd.DataFrame({TS_FIELD_NAME: dtx, ANNOUNCEMENT_FIELD_NAME: dtx}),
+            1: pd.DataFrame(
+                {TS_FIELD_NAME: dtx, ANNOUNCEMENT_FIELD_NAME: dtx}
+            ),
         }
         loader = EarningsCalendarLoader(
             dtx,
