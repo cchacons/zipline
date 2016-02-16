@@ -2085,6 +2085,7 @@ class TestEquityAutoClose(TestCase):
             {0: equity0_data, 1: equity1_data, 2: equity2_data},
         )
 
+        # Initialize function shared between all test algos.
         def initialize(context):
             context.ordered = False
             context.set_commission(PerShare(0))
@@ -2275,5 +2276,5 @@ class TestEquityAutoClose(TestCase):
         )
         algo.run(self.source)
 
-        # Assert that we have no open orders
+        # Assert that we have no open orders after the backtest has finished.
         self.assertFalse(algo.blotter.open_orders)
