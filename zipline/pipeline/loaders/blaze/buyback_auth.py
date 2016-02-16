@@ -1,4 +1,4 @@
-zipline/pipeline/loaders/blaze/earnings.pyfrom .core import (
+from .core import (
     TS_FIELD_NAME,
     SID_FIELD_NAME,
 )
