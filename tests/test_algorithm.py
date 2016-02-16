@@ -1825,15 +1825,16 @@ class TestClosePosAlgo(TestCase):
         self.env = TradingEnvironment()
         self.days = self.env.trading_days[:5]
         self.panel = pd.Panel({1: pd.DataFrame({
-            'price': [1, 1, 2, 4], 'volume': [1e9, 1e9, 1e9, 0],
+            'price': [1, 1, 2, 4, 8], 'volume': [1e9, 1e9, 1e9, 1e9, 0],
             'type': [DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
+                     DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.CLOSE_POSITION]},
-            index=self.days[:4])
+            index=self.days)
         })
         self.no_close_panel = pd.Panel({1: pd.DataFrame({
-            'price': [1, 1, 2, 4, 4], 'volume': [1e9, 1e9, 1e9, 1e9, 1e9],
+            'price': [1, 1, 2, 4, 8], 'volume': [1e9, 1e9, 1e9, 1e9, 1e9],
             'type': [DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
                      DATASOURCE_TYPE.TRADE,
@@ -1844,7 +1845,7 @@ class TestClosePosAlgo(TestCase):
 
     def test_close_position_equity(self):
         metadata = {1: {'symbol': 'TEST',
-                        'end_date': self.days[3]}}
+                        'end_date': self.days[4]}}
         self.env.write_data(equities_data=metadata)
         algo = TestAlgorithm(sid=1, amount=1, order_count=1,
                              commission=PerShare(0),
@@ -1852,8 +1853,8 @@ class TestClosePosAlgo(TestCase):
         data = DataPanelSource(self.panel)
 
         # Check results
-        expected_positions = [0, 1, 1, 0]
-        expected_pnl = [0, 0, 1, 2]
+        expected_positions = [0, 1, 1, 1, 0]
+        expected_pnl = [0, 0, 1, 2, 4]
         results = algo.run(data)
         self.check_algo_positions(results, expected_positions)
         self.check_algo_pnl(results, expected_pnl)
@@ -1867,8 +1868,8 @@ class TestClosePosAlgo(TestCase):
         data = DataPanelSource(self.panel)
 
         # Check results
-        expected_positions = [0, 1, 1, 0]
-        expected_pnl = [0, 0, 1, 2]
+        expected_positions = [0, 1, 1, 1, 0]
+        expected_pnl = [0, 0, 1, 2, 4]
         results = algo.run(data)
         self.check_algo_pnl(results, expected_pnl)
         self.check_algo_positions(results, expected_positions)
