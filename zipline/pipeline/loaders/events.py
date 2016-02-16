@@ -150,9 +150,7 @@ class EventsLoader(PipelineLoader):
                 event_date_field_name,
                 value_field_name,
                 previous_value_field.dtype,
-                # TODO: need to get actual name/method to use to get missing
-                # value
-                None
+                previous_value_field.missing_value
             ),
             adjustments=None,
         )
