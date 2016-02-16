@@ -44,67 +44,67 @@ from zipline.utils.test_utils import (
 sids = A, B, C, D, E = range(5)
 
 equity_info = make_simple_equity_info(
-            sids,
-            start_date=pd.Timestamp('2013-01-01', tz='UTC'),
-            end_date=pd.Timestamp('2015-01-01', tz='UTC'),
-        )
+    sids,
+    start_date=pd.Timestamp('2013-01-01', tz='UTC'),
+    end_date=pd.Timestamp('2015-01-01', tz='UTC'),
+)
 
 buyback_authorizations = {
-            # K1--K2--A1--A2--SC1--SC2--V1--V2.
-            A: pd.DataFrame({
-                "timestamp": pd.to_datetime(['2014-01-05', '2014-01-10']),
-                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-15',
-                                                                 '2014-01-20']),
-                SHARE_COUNT_FIELD_NAME: [1, 15],
-                CASH_FIELD_NAME: [10, 20]
-            }),
-            # K1--K2--E2--E1.
-            B: pd.DataFrame({
-                "timestamp": pd.to_datetime(['2014-01-05', '2014-01-10']),
-                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
-                    '2014-01-20', '2014-01-15'
-                ]),
-                SHARE_COUNT_FIELD_NAME: [7, 13], CASH_FIELD_NAME: [10, 22]
-            }),
-            # K1--E1--K2--E2.
-            C: pd.DataFrame({
-                "timestamp": pd.to_datetime(['2014-01-05', '2014-01-15']),
-                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
-                    '2014-01-10', '2014-01-20'
-                ]),
-                SHARE_COUNT_FIELD_NAME: [3, 1],
-                CASH_FIELD_NAME: [4, 7]
-            }),
-            # K1 == K2.
-            D: pd.DataFrame({
-                "timestamp": pd.to_datetime(['2014-01-05'] * 2),
-                BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
-                    '2014-01-10', '2014-01-15'
-                ]),
-                SHARE_COUNT_FIELD_NAME: [6, 23],
-                CASH_FIELD_NAME: [1, 2]
-            }),
-            E: pd.DataFrame(
-                columns=["timestamp",
-                         BUYBACK_ANNOUNCEMENT_FIELD_NAME,
-                         SHARE_COUNT_FIELD_NAME,
-                         CASH_FIELD_NAME],
-                dtype='datetime64[ns]'
-            ),
-        }
+    # K1--K2--A1--A2--SC1--SC2--V1--V2.
+    A: pd.DataFrame({
+        "timestamp": pd.to_datetime(['2014-01-05', '2014-01-10']),
+        BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-15',
+                                                         '2014-01-20']),
+        SHARE_COUNT_FIELD_NAME: [1, 15],
+        CASH_FIELD_NAME: [10, 20]
+    }),
+    # K1--K2--E2--E1.
+    B: pd.DataFrame({
+        "timestamp": pd.to_datetime(['2014-01-05', '2014-01-10']),
+        BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
+            '2014-01-20', '2014-01-15'
+        ]),
+        SHARE_COUNT_FIELD_NAME: [7, 13], CASH_FIELD_NAME: [10, 22]
+    }),
+    # K1--E1--K2--E2.
+    C: pd.DataFrame({
+        "timestamp": pd.to_datetime(['2014-01-05', '2014-01-15']),
+        BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
+            '2014-01-10', '2014-01-20'
+        ]),
+        SHARE_COUNT_FIELD_NAME: [3, 1],
+        CASH_FIELD_NAME: [4, 7]
+    }),
+    # K1 == K2.
+    D: pd.DataFrame({
+        "timestamp": pd.to_datetime(['2014-01-05'] * 2),
+        BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime([
+            '2014-01-10', '2014-01-15'
+        ]),
+        SHARE_COUNT_FIELD_NAME: [6, 23],
+        CASH_FIELD_NAME: [1, 2]
+    }),
+    E: pd.DataFrame(
+        columns=["timestamp",
+                 BUYBACK_ANNOUNCEMENT_FIELD_NAME,
+                 SHARE_COUNT_FIELD_NAME,
+                 CASH_FIELD_NAME],
+        dtype='datetime64[ns]'
+    ),
+}
 
 # Must be a list - can't use generator since this needs to be used more than
 # once.
 param_dates = list(gen_calendars(
-        '2014-01-01',
-        '2014-01-31',
-        critical_dates=pd.to_datetime([
-            '2014-01-05',
-            '2014-01-10',
-            '2014-01-15',
-            '2014-01-20',
-        ]),
-    ))
+    '2014-01-01',
+    '2014-01-31',
+    critical_dates=pd.to_datetime([
+        '2014-01-05',
+        '2014-01-10',
+        '2014-01-15',
+        '2014-01-20',
+    ]),
+))
 
 
 def zip_with_floats(dates, flts):
@@ -123,7 +123,6 @@ class BuybackAuthLoaderCommonTest:
     """
     Tests for loading the buyback authorization announcement data.
     """
-
 
     def loader_args(self, dates):
         """Construct the base buyback authorizations object to pass to the
@@ -147,7 +146,6 @@ class BuybackAuthLoaderCommonTest:
         """
         loader = self.loader_type(*self.loader_args(dates))
         return SimplePipelineEngine(lambda _: loader, dates, self.finder)
-
 
     def setup_expected_cols(self, dates):
         """
@@ -200,7 +198,6 @@ class BuybackAuthLoaderCommonTest:
             'previous_buyback_announcement'
         ] = _expected_previous_buyback_announcement
         self.cols['days_since_prev'] = _expected_previous_busday_offsets
-
 
     @staticmethod
     def _compute_busday_offsets(announcement_dates):
@@ -358,28 +355,28 @@ class ShareBuybackAuthLoaderTestCase(BuybackAuthLoaderCommonTest, TestCase):
         num_days_between_dates = partial(num_days_between, dates)
         super(ShareBuybackAuthLoaderTestCase, self).setup_expected_cols(dates)
         _expected_previous_buyback_share_count = pd.DataFrame({
-                A: zip_with_floats_dates(
-                    ['NaN'] * num_days_between_dates(None, '2014-01-14') +
-                    [1] * num_days_between_dates('2014-01-15', '2014-01-19') +
-                    [15] * num_days_between_dates('2014-01-20', None)
-                ),
-                B: zip_with_floats_dates(
-                    ['NaN'] * num_days_between_dates(None, '2014-01-14') +
-                    [13] * num_days_between_dates('2014-01-15', '2014-01-19') +
-                    [7] * num_days_between_dates('2014-01-20', None)
-                ),
-                C: zip_with_floats_dates(
-                    ['NaN'] * num_days_between_dates(None, '2014-01-09') +
-                    [3] * num_days_between_dates('2014-01-10', '2014-01-19') +
-                    [1] * num_days_between_dates('2014-01-20', None)
-                ),
-                D: zip_with_floats_dates(
-                    ['NaN'] * num_days_between_dates(None, '2014-01-09') +
-                    [6] * num_days_between_dates('2014-01-10', '2014-01-14') +
-                    [23] * num_days_between_dates('2014-01-15', None)
-                ),
-                E: zip_with_floats_dates(['NaN'] * len(dates)),
-            }, index=dates)
+            A: zip_with_floats_dates(
+                ['NaN'] * num_days_between_dates(None, '2014-01-14') +
+                [1] * num_days_between_dates('2014-01-15', '2014-01-19') +
+                [15] * num_days_between_dates('2014-01-20', None)
+            ),
+            B: zip_with_floats_dates(
+                ['NaN'] * num_days_between_dates(None, '2014-01-14') +
+                [13] * num_days_between_dates('2014-01-15', '2014-01-19') +
+                [7] * num_days_between_dates('2014-01-20', None)
+            ),
+            C: zip_with_floats_dates(
+                ['NaN'] * num_days_between_dates(None, '2014-01-09') +
+                [3] * num_days_between_dates('2014-01-10', '2014-01-19') +
+                [1] * num_days_between_dates('2014-01-20', None)
+            ),
+            D: zip_with_floats_dates(
+                ['NaN'] * num_days_between_dates(None, '2014-01-09') +
+                [6] * num_days_between_dates('2014-01-10', '2014-01-14') +
+                [23] * num_days_between_dates('2014-01-15', None)
+            ),
+            E: zip_with_floats_dates(['NaN'] * len(dates)),
+        }, index=dates)
         self.cols[
             'previous_buyback_share_count'
         ] = _expected_previous_buyback_share_count
