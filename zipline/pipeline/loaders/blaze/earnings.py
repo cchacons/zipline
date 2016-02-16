@@ -1,4 +1,4 @@
-zipline/pipeline/loaders/buyback_auth.pyfrom .core import (
+from .core import (
     ANNOUNCEMENT_FIELD_NAME,
     TS_FIELD_NAME,
     SID_FIELD_NAME
