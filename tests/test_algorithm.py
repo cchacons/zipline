@@ -2027,9 +2027,6 @@ class TestRemoveData(TestCase):
         np.testing.assert_array_equal(self.algo.data, expected_lengths)
 
 
-from nose.tools import set_trace
-
-
 class TestEquityAutoClose(TestCase):
     """
     Tests if delisted equities are properly removed from a portfolio holding
@@ -2159,7 +2156,38 @@ class TestEquityAutoClose(TestCase):
         Test that an equity's auto close date functions properly when it is
         set multiple days after the equity's end date.
         """
-        pass
+        # Modify the auto close date column to make liquidation occur 2 days
+        # after the end date.
+        metadata = self.metadata.copy()
+        metadata['auto_close_date'] = metadata['end_date'] + (2 * trading_day)
+
+        # Because our equities table is different here, use a fresh trading
+        # environment just for this test.
+        env = TradingEnvironment()
+        env.write_data(equities_df=metadata)
+
+        def handle_data(context, data):
+            if not context.ordered:
+                for s in data:
+                    context.order(context.sid(s), 10)
+                context.ordered = True
+
+            context.cash.append(context.portfolio.cash)
+            context.num_positions.append(len(context.portfolio.positions))
+
+        algo = TradingAlgorithm(
+            initialize=self.initialize.im_func,
+            handle_data=handle_data,
+            env=env,
+        )
+        algo.run(self.source)
+
+        # Cash values and number of positions here are the same as in
+        # test_delisted_equities above, except shifted by 1 day.
+        expected_cash = [100000, 99940, 99940, 99940, 99970, 99970, 100020]
+        expected_num_positions = [0, 3, 3, 3, 2, 2, 1]
+        self.assertEqual(algo.cash, expected_cash)
+        self.assertEqual(algo.num_positions, expected_num_positions)
 
     def test_short_position_cash(self):
         """
@@ -2183,6 +2211,18 @@ class TestEquityAutoClose(TestCase):
         )
         algo.run(self.source)
 
+        # Day 1: Short 10 shares of each equity; there are 3 equities.
+        # Day 2: Order goes through with each equity at $2 per share.
+        #        This is worth $60, so cash goes from $100,000 --> $100,060.
+        # Day 3: End date of Equity 0.
+        # Day 4: Auto close date of Equity 0. Its last close price was $3, so
+        #        we buy back the stock for $30 and cash goes from
+        #        $100,060 --> $100,030.
+        # Day 5: End date of Equity 1.
+        # Day 6: Auto close date of Equity 1. Its last close price was $5, so
+        #        we buy back the stock for $50 and cash goes from
+        #        $100,030 --> $99,980.
+        # Day 7: End date of Equity 2 and last day of backtest; no changes.
         expected_cash = [100000, 100060, 100060, 100030, 100030, 99980, 99980]
         expected_num_positions = [0, 3, 3, 2, 2, 1, 1]
         self.assertEqual(algo.cash, expected_cash)
