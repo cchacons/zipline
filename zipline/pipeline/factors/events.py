@@ -117,7 +117,7 @@ class BusinessDaysSincePreviousCashBuybackAuth(
 
     See Also
     --------
-    zipline.pipeline.factors.BusinessDaysUntilNextEarnings
+    zipline.pipeline.factors.BusinessDaysSincePreviousCashBuybackAuth
     """
     inputs = [CashBuybackAuthorizations.previous_announcement_date]
 
@@ -132,6 +132,6 @@ class BusinessDaysSincePreviousShareBuybackAuth(
 
     See Also
     --------
-    zipline.pipeline.factors.BusinessDaysUntilNextEarnings
+    zipline.pipeline.factors.BusinessDaysSincePreviousShareBuybackAuth
     """
     inputs = [ShareBuybackAuthorizations.previous_announcement_date]
