@@ -1,4 +1,4 @@
-tests/pipeline/test_events.py"""
+"""
 Tests for the reference loader for EarningsCalendar.
 """
 from functools import partial
