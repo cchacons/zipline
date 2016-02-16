@@ -20,6 +20,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 import pickle
 import sys
+from types import GetSetDescriptorType
 from unittest import TestCase
 import uuid
 import warnings
@@ -172,14 +173,9 @@ def build_lookup_generic_cases(asset_finder_type):
 
 class AssetTestCase(TestCase):
 
-    asset_attrs = ['sid',
-                   'symbol',
-                   'asset_name',
-                   'start_date',
-                   'end_date',
-                   'first_traded',
-                   'auto_close_date',
-                   'exchange']
+    # Dynamically list the Asset properties we want to test.
+    asset_attrs = [name for name, value in vars(Asset).items()
+                   if isinstance(value, GetSetDescriptorType)]
 
     # Very wow
     asset = Asset(

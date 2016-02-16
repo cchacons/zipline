@@ -57,14 +57,14 @@ PositionStats = namedtuple('PositionStats',
                             'net_value'])
 
 
-def generate_close_event(sid, date):
-        # Return a CLOSE_POSITION event
-        event = Event({
-            'dt': date,
-            'type': DATASOURCE_TYPE.CLOSE_POSITION,
-            'sid': sid,
-        })
-        return event
+def create_close_event(sid, date):
+    # Return a CLOSE_POSITION event
+    event = Event({
+        'dt': date,
+        'type': DATASOURCE_TYPE.CLOSE_POSITION,
+        'sid': sid,
+    })
+    return event
 
 
 def calc_position_values(amounts,
@@ -216,7 +216,7 @@ class PositionTracker(object):
             past_asset_end_dates.add(date)
 
             for sid in sids:
-                yield generate_close_event(sid, date)
+                yield create_close_event(sid, date)
 
         # Clear out past dates
         while past_asset_end_dates:
