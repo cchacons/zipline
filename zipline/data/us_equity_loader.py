@@ -17,42 +17,47 @@ from zipline.pipeline.data.equity_pricing import USEquityPricing
 
 class Block(object):
 
-    def __init__(self, array, adjustments, days):
+    def __init__(self, array, adjustments, cal_start, cal_end):
         self.array = array
         self.adjustments = adjustments
-        self.days = days
+        self.cal_start = cal_start
+        self.cal_end = cal_end
 
-    def get_slice(self, start, end):
-        block_slice = self.days.slice_indexer(start, end)
-        return self.array[block_slice]
+    def get_slice(self, start_ix, end_ix):
+        return self.array[
+            start_ix - self.cal_start:end_ix - self.cal_start + 1]
 
 
 class USEquityHistoryLoader(object):
 
     def __init__(self, daily_reader, adjustment_reader):
         self._daily_reader = daily_reader
+        self._calendar = daily_reader._calendar
         self._adjustments_reader = adjustment_reader
 
         self._daily_window_blocks = {}
 
-    def _ensure_block(self, asset, start, end, field):
+    def _ensure_block(self, asset, start, end, start_ix, end_ix, field):
         try:
             block = self._daily_window_blocks[asset]
-            if start >= block.days[0] and end <= block.days[-1]:
+            if start_ix >= block.cal_start and end_ix <= block.cal_end:
                 return
         except KeyError:
             pass
 
         col = getattr(USEquityPricing, field)
-        cal = self._daily_reader._calendar
-        prefetch_end = cal[min(cal.searchsorted(end) + 40, len(cal) - 1)]
+        cal = self._calendar
+        prefetch_end_ix = min(end_ix + 40, len(cal) - 1)
+        prefetch_end = cal[prefetch_end_ix]
         array = self._daily_reader.load_raw_arrays(
             [col], start, prefetch_end, [asset])[0][:, 0]
-        days = cal[cal.slice_indexer(start, prefetch_end)]
+        days = cal[start_ix:prefetch_end_ix]
         adjs = self._adjustments_reader.load_adjustments([col], days, [asset])
-        block = Block(array, adjs, days)
+        block = Block(array, adjs, start_ix, end_ix)
         self._daily_window_blocks[asset] = block
 
     def history(self, asset, start, end, field):
-        self._ensure_block(asset, start, end, field)
-        return self._daily_window_blocks[asset].get_slice(start, end)
+        start_ix = self._calendar.get_loc(start)
+        end_ix = self._calendar.get_loc(end)
+        self._ensure_block(asset, start, end, start_ix, end_ix, field)
+        return self._daily_window_blocks[asset].get_slice(start_ix, end_ix)
