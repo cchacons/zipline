@@ -36,7 +36,7 @@ cdef class AdjustedArrayWindow:
         databuffer data
         object viewtype
         readonly Py_ssize_t window_length
-        Py_ssize_t anchor, max_anchor, next_adj
+        Py_ssize_t anchor, next_anchor, max_anchor, next_adj
         dict adjustments
         list adjustment_indices
 
@@ -53,9 +53,15 @@ cdef class AdjustedArrayWindow:
         self.adjustment_indices = sorted(adjustments, reverse=True)
         self.window_length = window_length
         self.anchor = window_length + offset
+        self.next_anchor = self.anchor + 1
         self.max_anchor = data.shape[0]
 
         self.next_adj = self.pop_next_adj()
+
+    property anchor:
+
+        def __get__(self):
+            return self.anchor
 
     cdef pop_next_adj(self):
         """
@@ -75,7 +81,7 @@ cdef class AdjustedArrayWindow:
             object adjustment
             Py_ssize_t start, anchor
 
-        anchor = self.anchor
+        anchor = self.anchor = self.next_anchor
         if anchor > self.max_anchor:
             raise StopIteration()
 
@@ -93,7 +99,7 @@ cdef class AdjustedArrayWindow:
         out = asarray(self.data[start:self.anchor]).view(self.viewtype)
         out.setflags(write=False)
 
-        self.anchor += 1
+        self.next_anchor = self.anchor + 1
         return out
 
     def __repr__(self):
