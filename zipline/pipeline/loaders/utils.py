@@ -1,7 +1,6 @@
 import datetime
 
 import numpy as np
-from numpy import NaN
 import pandas as pd
 from six import iteritems
 from six.moves import zip
