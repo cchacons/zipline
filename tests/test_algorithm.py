@@ -2085,16 +2085,6 @@ class TestEquityAutoClose(TestCase):
             {0: equity0_data, 1: equity1_data, 2: equity2_data},
         )
 
-        # Initialize function shared between all test algos.
-        def initialize(context):
-            context.ordered = False
-            context.set_commission(PerShare(0))
-            context.set_slippage(FixedSlippage(spread=0))
-            context.num_positions = []
-            context.cash = []
-
-        cls.initialize = initialize
-
         try:
             cls.stack = ExitStack()
             finder = cls.stack.enter_context(
@@ -2116,10 +2106,22 @@ class TestEquityAutoClose(TestCase):
     def tearDownClass(cls):
         cls.stack.close()
 
-    def test_delisted_equities(self):
+    def default_initialize(self):
         """
-        Make sure that after an equity gets delisted, our portfolio holds the
-        correct number of equities and correct amount of cash.
+        Initialize function shared between test algos.
+        """
+        def initialize(context):
+            context.ordered = False
+            context.set_commission(PerShare(0))
+            context.set_slippage(FixedSlippage(spread=0))
+            context.num_positions = []
+            context.cash = []
+
+        return initialize
+
+    def default_handle_data(self):
+        """
+        Handle data function shared between test algos.
         """
         def handle_data(context, data):
             if not context.ordered:
@@ -2130,9 +2132,16 @@ class TestEquityAutoClose(TestCase):
             context.cash.append(context.portfolio.cash)
             context.num_positions.append(len(context.portfolio.positions))
 
+        return handle_data
+
+    def test_delisted_equities(self):
+        """
+        Make sure that after an equity gets delisted, our portfolio holds the
+        correct number of equities and correct amount of cash.
+        """
         algo = TradingAlgorithm(
-            initialize=self.initialize.im_func,
-            handle_data=handle_data,
+            initialize=self.default_initialize(),
+            handle_data=self.default_handle_data(),
             env=self.env,
         )
         algo.run(self.source)
@@ -2167,18 +2176,9 @@ class TestEquityAutoClose(TestCase):
         env = TradingEnvironment()
         env.write_data(equities_df=metadata)
 
-        def handle_data(context, data):
-            if not context.ordered:
-                for s in data:
-                    context.order(context.sid(s), 10)
-                context.ordered = True
-
-            context.cash.append(context.portfolio.cash)
-            context.num_positions.append(len(context.portfolio.positions))
-
         algo = TradingAlgorithm(
-            initialize=self.initialize.im_func,
-            handle_data=handle_data,
+            initialize=self.default_initialize(),
+            handle_data=self.default_handle_data(),
             env=env,
         )
         algo.run(self.source)
@@ -2196,6 +2196,8 @@ class TestEquityAutoClose(TestCase):
         the value of the position is subtracted from the portfolio's cash.
         Furthermore, if cash is zero, test that cash goes negative.
         """
+        # Same as the default handle data function, except we short the
+        # equities instead of long them.
         def handle_data(context, data):
             if not context.ordered:
                 for s in data:
@@ -2206,7 +2208,7 @@ class TestEquityAutoClose(TestCase):
             context.num_positions.append(len(context.portfolio.positions))
 
         algo = TradingAlgorithm(
-            initialize=self.initialize.im_func,
+            initialize=self.default_initialize(),
             handle_data=handle_data,
             env=self.env,
         )
@@ -2232,7 +2234,7 @@ class TestEquityAutoClose(TestCase):
         # Now run it again with zero starting dollars.
         source = DataPanelSource(self.source_panel)
         algo = TradingAlgorithm(
-            initialize=self.initialize.im_func,
+            initialize=self.default_initialize(),
             handle_data=handle_data,
             env=self.env,
             capital_base=0,
@@ -2251,6 +2253,9 @@ class TestEquityAutoClose(TestCase):
         canceled. Unless an equity is auto closed, any open orders for that
         equity will persist indefinitely.
         """
+        def initialize(context):
+            pass
+
         def handle_data(context, data):
             if context.get_datetime() == self.first_end_date:
                 # Equity 0 will no longer exist tomorrow, so this order will
@@ -2270,7 +2275,7 @@ class TestEquityAutoClose(TestCase):
                 )
 
         algo = TradingAlgorithm(
-            initialize=self.initialize.im_func,
+            initialize=initialize,
             handle_data=handle_data,
             env=self.env,
         )
