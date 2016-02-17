@@ -368,7 +368,7 @@ class PositionTracker(object):
             dt=event.dt,
             price=price,
             commission=0,
-            order_id=uuid.uuid4().hex,
+            order_id=None,
         )
         return txn
 
