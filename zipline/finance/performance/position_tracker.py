@@ -18,7 +18,6 @@ from __future__ import division
 import logbook
 import numpy as np
 import pandas as pd
-import uuid
 from pandas.lib import checknull
 from collections import namedtuple
 try:
