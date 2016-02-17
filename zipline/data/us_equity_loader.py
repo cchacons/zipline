@@ -13,8 +13,18 @@
 # limitations under the License.
 
 from zipline.pipeline.data.equity_pricing import USEquityPricing
-from zipline.lib._float64window import AdjustedArrayWindow as Float64Window
-from zilpnie.lib._int64window import AdjustedArrayWindow as Int64Window
+#from zipline.lib._float64window import AdjustedArrayWindow as Float64Window
+#from zilpnie.lib._int64window import AdjustedArrayWindow as Int64Window
+
+##
+
+#        return self._iterator_type(
+#            data, np.array
+#            self._viewtype, dtype('float64')
+#            self.adjustments, Float64Multiply(first_row=0, last_row=0, first_col=0, last_col=0)
+#            offset, int 
+#            window_length, windowlength
+#        )
 
 class Block(object):
 
