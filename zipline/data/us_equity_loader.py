@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from zipline.pipeline.data.equity_pricing import USEquityPricing
-
+from zipline.lib._float64window import AdjustedArrayWindow as Float64Window
+from zilpnie.lib._int64window import AdjustedArrayWindow as Int64Window
 
 class Block(object):
 
