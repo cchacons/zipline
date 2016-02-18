@@ -119,7 +119,7 @@ def zip_with_dates(index_dates, dts):
     return pd.Series(pd.to_datetime(dts), index=index_dates)
 
 
-class BuybackAuthLoaderCommonTest:
+class BuybackAuthLoaderCommonTest(object):
     """
     Tests for loading the buyback authorization announcement data.
     """
